@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | Users and Employees Manager</title>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="vos.css" />
+
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; }
         #usersTbody .fullname-cell { cursor: pointer; }
@@ -17,7 +19,7 @@
         .subtab-button.active { background-color: #e3f2fd; color: #1e88e5; }
     </style>
 </head>
-<body class="text-gray-800">
+<body class="text-gray-800 bg-slate-50">
 
 <header class="vos-header">
     <div class="vos-header-inner">
@@ -30,30 +32,25 @@
     <div class="flex flex-col gap-4">
         <div class="flex items-center justify-between mb-6">
             <h1 class="text-3xl font-bold tracking-tight text-slate-900">Users</h1>
-            <button id="newUserBtn" class="vos-btn-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-                </svg>
-                <span>New User</span>
-            </button>
+            <button id="newUserBtn" class="vos-btn-primary">Add User</button>
         </div>
 
         <div class="vos-card overflow-hidden">
-
             <div class="p-5 border-b border-slate-200">
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-4 items-end">
-
                     <div class="md:col-span-6">
                         <label for="searchBox" class="label">Search</label>
                         <div class="search-container mt-1">
                             <div class="search-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+                                </svg>
                             </div>
                             <input id="searchBox" type="search" class="input w-full" placeholder="Search by name, email or department" />
                         </div>
                     </div>
-
-                    <div class="md:col-span-3">
+                    <fieldset class="md:col-span-3">
+                        <legend class="sr-only">Email filter</legend>
                         <div class="flex items-center gap-4 pt-1">
                             <label class="flex items-center gap-2">
                                 <input id="withEmailCheckbox" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" checked />
@@ -64,8 +61,7 @@
                                 <span class="text-sm">Without Email</span>
                             </label>
                         </div>
-                    </div>
-
+                    </fieldset>
                     <div class="md:col-span-3">
                         <label for="pageSize" class="label">Rows per page</label>
                         <select id="pageSize" class="input mt-1 w-full md:w-auto">
@@ -78,11 +74,9 @@
                     </div>
                 </div>
             </div>
-
         </div>
 
-
-        <div>
+        <div class="overflow-x-auto">
             <table class="vos-table">
                 <thead>
                 <tr>
@@ -100,149 +94,290 @@
             </table>
         </div>
 
-        <div class="flex items-center justify-between p-4 border-t border-slate-200 bg-slate-50/50">
-            <div class="text-sm text-slate-600" id="resultInfo">
+        <nav class="flex items-center justify-between p-4 border-t border-slate-200 bg-slate-50/50" aria-label="Table navigation">
+            <div class="text-sm text-slate-600" id="resultInfo" role="status" aria-live="polite">
                 Showing 0 to 0 of 0 results.
             </div>
             <div class="flex items-center gap-2">
                 <button id="prevBtn" class="vos-btn" type="button">Previous</button>
-                <span id="pageIndicator" class="text-sm font-medium text-slate-700 px-2">1 / 1</span>
+                <span id="pageIndicator" class="text-sm font-medium text-slate-700 px-2" aria-label="Current Page">1 / 1</span>
                 <button id="nextBtn" class="vos-btn" type="button">Next</button>
             </div>
-        </div>
-
+        </nav>
     </div>
 </main>
 
-<div id="newUserModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden">
+<div id="newUserModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden" role="dialog" aria-modal="true" aria-labelledby="newUserModalTitle">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
-        <div class="p-4 border-b">
-            <h3 class="text-lg font-semibold">Register new employee</h3>
-        </div>
-
+        <header class="p-4 border-b">
+            <h3 id="newUserModalTitle" class="text-lg font-semibold">Add New User</h3>
+            <p class="text-sm text-slate-500">Fill out the user information below.</p>
+        </header>
         <div class="overflow-y-auto flex-grow p-6">
-            <form id="newUserForm">
-                <div class="grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-5">
-
-                    <div class="md:col-span-2">
+            <form id="newUserForm" class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
                         <label for="newFirstName" class="label">First Name</label>
-                        <input type="text" id="newFirstName" class="input" placeholder="First Name">
+                        <input type="text" id="newFirstName" class="input" required />
                     </div>
-                    <div class="md:col-span-2">
+                    <div>
                         <label for="newMiddleName" class="label">Middle Name</label>
-                        <input type="text" id="newMiddleName" class="input" placeholder="Middle Name">
+                        <input type="text" id="newMiddleName" class="input" />
                     </div>
-                    <div class="md:col-span-2">
+                    <div>
                         <label for="newLastName" class="label">Last Name</label>
-                        <input type="text" id="newLastName" class="input" placeholder="Last Name">
+                        <input type="text" id="newLastName" class="input" required />
                     </div>
-
-                    <div class="md:col-span-2">
-                        <label for="newProvince" class="label">Province</label>
-                        <select id="newProvince" class="input"></select>
+                    <div>
+                        <label for="newEmail" class="label">Email</label>
+                        <input type="email" id="newEmail" class="input" />
                     </div>
-                    <div class="md:col-span-2">
-                        <label for="newCity" class="label">City</label>
-                        <select id="newCity" class="input"></select>
+                    <div>
+                        <label for="newPassword" class="label">Password</label>
+                        <input type="password" id="newPassword" class="input" required autocomplete="new-password" />
                     </div>
-                    <div class="md:col-span-2">
-                        <label for="newBarangay" class="label">Barangay</label>
-                        <select id="newBarangay" class="input"></select>
+                    <div>
+                        <label for="newPasswordConfirm" class="label">Confirm Password</label>
+                        <input type="password" id="newPasswordConfirm" class="input" required autocomplete="new-password" />
                     </div>
-
-                    <div class="md:col-span-3">
-                        <label for="newContact" class="label">Contact</label>
-                        <input type="text" id="newContact" class="input" placeholder="Contact">
+                    <div>
+                        <label for="newContact" class="label">Mobile Number</label>
+                        <input type="tel" id="newContact" class="input" />
                     </div>
-                    <div class="md:col-span-3">
-                        <label for="newEmail" class="label">E-mail</label>
-                        <input type="email" id="newEmail" class="input" placeholder="E-mail">
+                    <div>
+                        <label for="newRfid" class="label">RFID</label>
+                        <input type="text" id="newRfid" class="input" />
                     </div>
-
-                    <div class="md:col-span-3">
-                        <label for="newDepartmentName" class="label">Department</label>
-                        <select id="newDepartmentName" class="input"></select>
-                    </div>
-                    <div class="md:col-span-3">
+                    <div>
                         <label for="newPosition" class="label">Position</label>
-                        <input type="text" id="newPosition" class="input" placeholder="Position">
+                        <input type="text" id="newPosition" class="input" />
                     </div>
-
-                    <div class="md:col-span-2">
-                        <label for="newTin" class="label">TIN</label>
-                        <input type="text" id="newTin" class="input" placeholder="TIN">
+                    <div>
+                        <label for="newDepartmentName" class="label">Department</label>
+                        <select id="newDepartmentName" class="input" required>
+                            <option value="">Loading...</option>
+                        </select>
                     </div>
-                    <div class="md:col-span-2">
-                        <label for="newSss" class="label">SSS</label>
-                        <input type="text" id="newSss" class="input" placeholder="SSS">
+                    <div>
+                        <label for="newProvince" class="label">Province</label>
+                        <select id="newProvince" class="input">
+                            <option value="">Loading...</option>
+                        </select>
                     </div>
-                    <div class="md:col-span-2">
-                        <label for="newPhilhealth" class="label">PhilHealth</label>
-                        <input type="text" id="newPhilhealth" class="input" placeholder="PhilHealth">
+                    <div>
+                        <label for="newCity" class="label">City / Municipality</label>
+                        <select id="newCity" class="input" disabled>
+                            <option value="">Select a province first</option>
+                        </select>
                     </div>
-
-                    <div class="md:col-span-3">
+                    <div>
+                        <label for="newBarangay" class="label">Barangay</label>
+                        <select id="newBarangay" class="input" disabled>
+                            <option value="">Select a city first</option>
+                        </select>
+                    </div>
+                    <div>
                         <label for="newBirthday" class="label">Birthday</label>
-                        <input type="date" id="newBirthday" value="2025-09-05" class="input">
+                        <input type="date" id="newBirthday" class="input" />
                     </div>
-                    <div class="md:col-span-3">
+                    <div>
                         <label for="newDateHired" class="label">Date Hired</label>
-                        <input type="date" id="newDateHired" value="2025-09-05" class="input">
+                        <input type="date" id="newDateHired" class="input" />
+                    </div>
+                    <div></div>
+                    <div>
+                        <label for="newTin" class="label">TIN</label>
+                        <input type="text" id="newTin" class="input" />
+                    </div>
+                    <div>
+                        <label for="newSss" class="label">SSS</label>
+                        <input type="text" id="newSss" class="input" />
+                    </div>
+                    <div>
+                        <label for="newPhilhealth" class="label">PhilHealth</label>
+                        <input type="text" id="newPhilhealth" class="input" />
+                    </div>
+                    <div>
+                        <label for="newImage" class="label">Image URL</label>
+                        <input type="text" id="newImage" class="input" placeholder="\\\\server\\path\\image.jpg or http://..." />
+                    </div>
+                    <div>
+                        <label for="newExternalId" class="label">External ID</label>
+                        <input type="text" id="newExternalId" class="input" />
+                    </div>
+                    <div>
+                        <label for="newRoleId" class="label">Role ID</label>
+                        <input type="number" id="newRoleId" class="input" />
+                    </div>
+                    <div>
+                        <label for="newTags" class="label">Tags</label>
+                        <input type="text" id="newTags" class="input" placeholder="Optional tags" />
+                    </div>
+                    <div>
+                        <label for="newBranchId" class="label">Branch ID</label>
+                        <input type="number" id="newBranchId" class="input" />
+                    </div>
+                    <div>
+                        <label for="newBranchName" class="label">Branch Name</label>
+                        <input type="text" id="newBranchName" class="input" />
+                    </div>
+                    <div>
+                        <label for="newOperationId" class="label">Operation ID</label>
+                        <input type="number" id="newOperationId" class="input" />
+                    </div>
+                    <div class="flex items-center pt-6 sm:col-span-3">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="newIsActive" class="h-4 w-4 rounded" checked> Is Active
+                        </label>
                     </div>
                 </div>
-                <p id="newUserFormError" class="text-danger text-sm mt-4"></p>
+                <p id="newUserFormError" class="text-danger text-sm" role="alert"></p>
             </form>
         </div>
-
-        <div class="flex justify-start gap-3 p-4 border-t border-slate-200 bg-slate-50">
-            <button type="submit" form="newUserForm" class="vos-btn-primary">Confirm</button>
+        <footer class="flex justify-end gap-3 p-4 border-t border-slate-200 bg-slate-50">
             <button type="button" id="cancelNewUserBtn" class="vos-btn">Cancel</button>
-        </div>
+            <button type="submit" form="newUserForm" class="vos-btn-primary">Create User</button>
+        </footer>
     </div>
 </div>
 
-<div id="editUserModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden">
+<div id="editUserModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden" role="dialog" aria-modal="true" aria-labelledby="editUserModalTitle">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
-        <div class="p-4 border-b">
-            <h3 class="text-lg font-semibold">Edit employee</h3>
-            <p class="text-sm text-slate-500">Position</p>
-        </div>
+        <header class="p-4 border-b">
+            <h3 id="editUserModalTitle" class="text-lg font-semibold">Edit Employee</h3>
+            <p class="text-sm text-slate-500">Update user details and access permissions.</p>
+        </header>
         <div class="border-b border-slate-200 px-4">
-            <nav class="flex space-x-2">
+            <nav class="flex space-x-2" aria-label="Modal sections">
                 <button data-tab-target="#editUserInformation" class="main-tab-button active px-3 py-2 text-sm font-medium rounded-t-md">User Information</button>
                 <button data-tab-target="#editUserAccess" class="main-tab-button px-3 py-2 text-sm font-medium rounded-t-md">User Access</button>
             </nav>
         </div>
         <div class="overflow-y-auto flex-grow">
-            <div id="editUserInformation" class="main-tab-content p-6">
+            <section id="editUserInformation" class="main-tab-content p-6" role="tabpanel">
                 <form id="editUserForm" class="space-y-4">
                     <input type="hidden" id="editUserId">
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div><label for="editFullName" class="label">Full Name</label><input type="text" id="editFullName" class="input" required></div>
-                        <div><label for="editEmail" class="label">Email</label><input type="email" id="editEmail" class="input"></div>
-                        <div><label for="editPassword" class="label">Password (leave blank)</label><input type="password" id="editPassword" class="input"></div>
-                        <div><label for="editMobileNumber" class="label">Mobile Number</label><input type="text" id="editMobileNumber" class="input"></div>
-                        <div><label for="editDepartmentName" class="label">Department</label><select id="editDepartmentName" class="input" required><option value="">Loading...</option></select></div>
-                        <div><label for="editPosition" class="label">Position</label><input type="text" id="editPosition" class="input"></div>
-                        <div><label for="editBranchId" class="label">Branch ID</label><input type="text" id="editBranchId" class="input"></div>
-                        <div><label for="editBranchName" class="label">Branch Name</label><input type="text" id="editBranchName" class="input"></div>
-                        <div><label for="editOperationId" class="label">Operation ID</label><input type="text" id="editOperationId" class="input"></div>
-                        <div><label for="editToken" class="label">Token</label><input type="text" id="editToken" class="input"></div>
-                        <div class="flex items-center pt-6 sm:col-span-3"><label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="editIsActive" class="h-4 w-4 rounded"> Is Active</label></div>
+                        <div>
+                            <label for="editFirstName" class="label">First Name</label>
+                            <input type="text" id="editFirstName" class="input" required />
+                        </div>
+                        <div>
+                            <label for="editMiddleName" class="label">Middle Name</label>
+                            <input type="text" id="editMiddleName" class="input" />
+                        </div>
+                        <div>
+                            <label for="editLastName" class="label">Last Name</label>
+                            <input type="text" id="editLastName" class="input" required />
+                        </div>
+                        <div>
+                            <label for="editEmail" class="label">Email</label>
+                            <input type="email" id="editEmail" class="input" />
+                        </div>
+                        <div>
+                            <label for="editPassword" class="label">New Password (optional)</label>
+                            <input type="password" id="editPassword" class="input" autocomplete="new-password" />
+                        </div>
+                        <div>
+                            <label for="editPasswordConfirm" class="label">Confirm New Password</label>
+                            <input type="password" id="editPasswordConfirm" class="input" autocomplete="new-password" />
+                        </div>
+                        <div>
+                            <label for="editContact" class="label">Mobile Number</label>
+                            <input type="tel" id="editContact" class="input" />
+                        </div>
+                        <div>
+                            <label for="editRfid" class="label">RFID</label>
+                            <input type="text" id="editRfid" class="input" />
+                        </div>
+                        <div>
+                            <label for="editPosition" class="label">Position</label>
+                            <input type="text" id="editPosition" class="input" />
+                        </div>
+                        <div>
+                            <label for="editDepartmentName" class="label">Department</label>
+                            <select id="editDepartmentName" class="input" required><option value="">Loading...</option></select>
+                        </div>
+                        <div>
+                            <label for="editProvince" class="label">Province</label>
+                            <select id="editProvince" class="input"><option value="">Loading...</option></select>
+                        </div>
+                        <div>
+                            <label for="editCity" class="label">City / Municipality</label>
+                            <select id="editCity" class="input" disabled><option value="">Select a province first</option></select>
+                        </div>
+                        <div>
+                            <label for="editBarangay" class="label">Barangay</label>
+                            <select id="editBarangay" class="input" disabled><option value="">Select a city first</option></select>
+                        </div>
+                        <div>
+                            <label for="editBirthday" class="label">Birthday</label>
+                            <input type="date" id="editBirthday" class="input" />
+                        </div>
+                        <div>
+                            <label for="editDateHired" class="label">Date Hired</label>
+                            <input type="date" id="editDateHired" class="input" />
+                        </div>
+                        <div></div>
+                        <div>
+                            <label for="editTin" class="label">TIN</label>
+                            <input type="text" id="editTin" class="input" />
+                        </div>
+                        <div>
+                            <label for="editSss" class="label">SSS</label>
+                            <input type="text" id="editSss" class="input" />
+                        </div>
+                        <div>
+                            <label for="editPhilhealth" class="label">PhilHealth</label>
+                            <input type="text" id="editPhilhealth" class="input" />
+                        </div>
+                        <div>
+                            <label for="editImage" class="label">Image URL</label>
+                            <input type="text" id="editImage" class="input" placeholder="\\\\server\\path\\image.jpg or http://..." />
+                        </div>
+                        <div>
+                            <label for="editExternalId" class="label">External ID</label>
+                            <input type="text" id="editExternalId" class="input" />
+                        </div>
+                        <div>
+                            <label for="editRoleId" class="label">Role ID</label>
+                            <input type="number" id="editRoleId" class="input" />
+                        </div>
+                        <div>
+                            <label for="editTags" class="label">Tags</label>
+                            <input type="text" id="editTags" class="input" placeholder="Optional tags" />
+                        </div>
+                        <div>
+                            <label for="editBranchId" class="label">Branch ID</label>
+                            <input type="number" id="editBranchId" class="input" />
+                        </div>
+                        <div>
+                            <label for="editBranchName" class="label">Branch Name</label>
+                            <input type="text" id="editBranchName" class="input" />
+                        </div>
+                        <div>
+                            <label for="editOperationId" class="label">Operation ID</label>
+                            <input type="number" id="editOperationId" class="input" />
+                        </div>
+                        <div class="flex items-center pt-6 sm:col-span-3">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="editIsActive" class="h-4 w-4 rounded"> Is Active
+                            </label>
+                        </div>
                     </div>
-                    <p id="editUserFormError" class="text-danger text-sm"></p>
+                    <p id="editUserFormError" class="text-danger text-sm" role="alert"></p>
                 </form>
-            </div>
-            <div id="editUserAccess" class="main-tab-content hidden h-full">
+            </section>
+            <section id="editUserAccess" class="main-tab-content hidden h-full" role="tabpanel">
                 <div class="flex h-full">
                     <div class="border-r border-slate-200 p-2 w-40">
-                        <nav class="flex flex-col space-y-1">
+                        <nav class="flex flex-col space-y-1" aria-label="Access subsections">
                             <button data-subtab-target="#editModuleAccess" class="sub-tab-button active w-full text-left text-sm p-2 rounded-md">Module Access</button>
                             <button data-subtab-target="#editTaskbarAccess" class="sub-tab-button w-full text-left text-sm p-2 rounded-md">Taskbar Access</button>
                         </nav>
                     </div>
                     <div class="flex-grow p-4">
-                        <div id="editModuleAccess" class="sub-tab-content">
+                        <div id="editModuleAccess" class="sub-tab-content" role="tabpanel">
                             <div class="grid grid-cols-2 gap-4 h-full">
                                 <div>
                                     <h4 class="font-semibold mb-2">User Module Access</h4>
@@ -256,7 +391,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div id="editTaskbarAccess" class="sub-tab-content hidden">
+                        <div id="editTaskbarAccess" class="sub-tab-content hidden" role="tabpanel">
                             <div class="grid grid-cols-2 gap-4 h-full">
                                 <div>
                                     <h4 class="font-semibold mb-2">User Taskbar Access</h4>
@@ -270,12 +405,12 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
         </div>
-        <div class="flex justify-end gap-3 p-4 border-t border-slate-200 bg-slate-50">
+        <footer class="flex justify-end gap-3 p-4 border-t border-slate-200 bg-slate-50">
             <button type="button" id="cancelEditUserBtn" class="vos-btn">Cancel</button>
             <button type="submit" form="editUserForm" class="vos-btn-primary">Update User</button>
-        </div>
+        </footer>
     </div>
 </div>
 
