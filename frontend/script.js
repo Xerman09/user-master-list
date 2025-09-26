@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // API endpoints: same-origin if already on backend, otherwise target backend at localhost:3002 (for file:// fallback)
     const isFileProtocol = window.location.protocol === 'file:';
     const API_BASE = (window.location.port === '3002' && isLocalHost(window.location.hostname)) ? '' : (isFileProtocol ? 'http://localhost:3002' : '');
-    const USERS_API_URL = `${API_BASE}/api/users`;
-    const DEPARTMENTS_API_URL = `${API_BASE}/api/departments`;
+    const USERS_API_URL = `${API_BASE}/items/user`;
+    const DEPARTMENTS_API_URL = `${API_BASE}/items/department`;
     const LOGIN_URL = `${API_BASE}/api/login`;
     const AUTH_CURRENT_URL = `${API_BASE}/api/auth/current-login`;
 
@@ -227,16 +227,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const renderTable = () => {
             const filteredUsers = allUsers.filter(user => {
-                const searchMatch = (
-                    user.fullName?.toLowerCase().includes(searchTerm) ||
-                    user.email?.toLowerCase().includes(searchTerm) ||
-                    user.departmentName?.toLowerCase().includes(searchTerm)
+                const norm = (v) => (v == null ? '' : String(v)).toLowerCase();
+                const hasEmail = !!(user.email && String(user.email).trim() !== '');
+                const emailMatch = (showWithEmail && showWithoutEmail)
+                    ? true
+                    : (showWithEmail
+                        ? hasEmail
+                        : (showWithoutEmail ? !hasEmail : false));
+                const searchMatch = (searchTerm === '') ? true : (
+                    norm(user.fullName).includes(searchTerm) ||
+                    norm(user.email).includes(searchTerm) ||
+                    norm(user.departmentName).includes(searchTerm)
                 );
-                const hasEmail = user.email && user.email.trim() !== '';
-                let emailMatch = false;
-                if (showWithEmail && showWithoutEmail) emailMatch = true;
-                else if (showWithEmail) emailMatch = hasEmail;
-                else if (showWithoutEmail) emailMatch = !hasEmail;
                 return searchMatch && emailMatch;
             });
 
@@ -332,49 +334,136 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setupModalTabs(editUserModal);
 
-        const openEditModal = (user) => {
+        // Fetch full user info via our own backend proxy to avoid CORS issues
+        const fetchDirectusUserDetail = async (id) => {
+            if (id == null) return null;
+            try {
+                const url = `${API_BASE}/items/user/${encodeURIComponent(id)}/details`;
+                const r = await fetch(url, { method: 'GET' });
+                if (!r.ok) {
+                    console.warn(`[SPA] Failed to fetch details for user ${id}, status: ${r.status}`);
+                    return null;
+                }
+                return await r.json().catch(() => null);
+            } catch (e) {
+                console.error('[SPA] Error fetching user details via proxy:', e);
+                return null;
+            }
+        };
+
+        // Normalize diverse field names from Directus into the ones used by the modal
+        const normalizeUserDetail = (u) => {
+            if (!u || typeof u !== 'object') return {};
+            const pick = (...keys) => {
+                for (const k of keys) {
+                    if (u[k] != null && u[k] !== '') return u[k];
+                }
+                return undefined;
+            };
+            // Names
+            const firstName = pick('firstName','first_name','fname','user_fname','given_name');
+            const middleName = pick('middleName','middle_name','mname','user_mname');
+            const lastName = pick('lastName','last_name','lname','user_lname','surname','family_name');
+            const fullName = pick('fullName','full_name','name', undefined);
+            const email = pick('email','user_email','username');
+            const mobileNumber = pick('mobileNumber','mobile_number','contact','user_contact','userContact','phone');
+            const rfId = pick('rfId','rfid','rf_id');
+            const position = pick('position','user_position','job_title','title');
+            const departmentId = pick('departmentId','department_id','dept_id', 'user_department');
+            let departmentName = pick('departmentName','department_name','dept_name');
+            const department = pick('department','userDepartment');
+            if (!departmentName && department && typeof department === 'object') {
+                departmentName = department.name || department.departmentName || department.department_name || department.dept_name;
+            }
+            if (!departmentId && department && typeof department === 'object') {
+                const idCandidate = department.id ?? department.departmentId ?? department.department_id ?? department.dept_id;
+                if (idCandidate != null) {
+                    const n = parseInt(idCandidate, 10);
+                    if (!Number.isNaN(n)) {
+                        u.departmentId = n;
+                    }
+                }
+            }
+            const province = pick('province','user_province','address_province');
+            const city = pick('city','user_city','address_city','municipality');
+            const barangay = pick('barangay','user_brgy','address_barangay');
+            const birthday = pick('birthday','user_bday','birthdate','dob');
+            const dateOfHire = pick('dateOfHire','user_dateOfHire','date_hired','hired_date');
+            const tin = pick('tin','tinNumber','tin_no','user_tin');
+            const sss = pick('sss','sssNumber','sss_no','user_sss');
+            const philhealth = pick('philhealth','philHealth','philhealthNumber','philhealth_no','user_philhealth');
+            const isActive = pick('isActive','active','status');
+            const image = pick('image','image_url','img');
+            const externalId = pick('externalId','external_id');
+            const roleId = pick('roleId','role_id');
+            const tags = pick('tags');
+            const branchId = pick('branchId','branch_id');
+            const branchName = pick('branchName','branch_name');
+            const operationId = pick('operationId','operation_id');
+            return {
+                firstName, middleName, lastName, fullName, email, mobileNumber, rfId,
+                position, departmentId, departmentName,
+                province, city, barangay,
+                birthday, dateOfHire, tin, sss, philhealth, isActive,
+                image, externalId, roleId, tags, branchId, branchName, operationId
+            };
+        };
+
+        const openEditModal = async (user) => {
             editUserForm.reset();
             clearAllEditUserFieldErrors();
             editUserFormError.textContent = '';
 
+            // --- Try to fetch full user details from Directus and merge with the row user ---
+            const userId = user.userId ?? user.id ?? user.user_id ?? null;
+            let merged = { ...user };
+            try {
+                const detailRaw = await fetchDirectusUserDetail(userId);
+                const detailNorm = normalizeUserDetail(detailRaw);
+                merged = { ...merged, ...detailNorm };
+            } catch (e) {
+                console.warn('Could not load extra user details from Directus:', e);
+            }
+
             // --- Populate Basic Info ---
             const hiddenIdInput = document.getElementById('editUserId');
-            if (hiddenIdInput) hiddenIdInput.value = user.userId;
+            if (hiddenIdInput) hiddenIdInput.value = userId ?? '';
 
-            const names = (user.fullName || '').split(' ');
-            const firstName = names[0] || '';
-            const lastName = names.length > 1 ? names[names.length - 1] : '';
-            const middleName = names.length > 2 ? names.slice(1, -1).join(' ') : '';
+            // Prefer split names from details; otherwise split from fullName
+            const names = (merged.firstName || merged.middleName || merged.lastName) ? null : (merged.fullName || '').split(' ');
+            const firstName = merged.firstName || (names ? (names[0] || '') : '');
+            const lastName = merged.lastName || (names ? (names.length > 1 ? names[names.length - 1] : '') : '');
+            const middleName = merged.middleName || (names ? (names.length > 2 ? names.slice(1, -1).join(' ') : '') : '');
 
-            document.getElementById('editFirstName').value = firstName;
-            document.getElementById('editMiddleName').value = middleName;
-            document.getElementById('editLastName').value = lastName;
+            document.getElementById('editFirstName').value = firstName || '';
+            document.getElementById('editMiddleName').value = middleName || '';
+            document.getElementById('editLastName').value = lastName || '';
 
-            document.getElementById('editEmail').value = user.email || '';
-            document.getElementById('editContact').value = user.mobileNumber || '';
-            document.getElementById('editPosition').value = user.position || '';
-            document.getElementById('editRfid').value = user.rfId ?? user.rfid ?? '';
-            document.getElementById('editIsActive').checked = user.isActive;
+            document.getElementById('editEmail').value = merged.email || '';
+            document.getElementById('editContact').value = merged.mobileNumber || '';
+            document.getElementById('editPosition').value = merged.position || '';
+            document.getElementById('editRfid').value = (merged.rfId ?? merged.rfid ?? '') || '';
+            document.getElementById('editIsActive').checked = !!(merged.isActive === true || merged.isActive === 1 || String(merged.isActive).toLowerCase() === 'true');
 
             // --- Populate HR Info ---
-            document.getElementById('editBirthday').value = toYMD(user.birthday);
-            document.getElementById('editDateHired').value = toYMD(user.dateOfHire);
-            document.getElementById('editTin').value = user.tin || '';
-            document.getElementById('editSss').value = user.sss || '';
-            document.getElementById('editPhilhealth').value = user.philhealth || '';
+            document.getElementById('editBirthday').value = toYMD(merged.birthday);
+            document.getElementById('editDateHired').value = toYMD(merged.dateOfHire);
+            document.getElementById('editTin').value = merged.tin || '';
+            document.getElementById('editSss').value = merged.sss || '';
+            document.getElementById('editPhilhealth').value = merged.philhealth || '';
             // --- Populate Additional Fields to mirror /api/users structure ---
-            const editImageEl = document.getElementById('editImage'); if (editImageEl) editImageEl.value = user.image || '';
-            const editExternalIdEl = document.getElementById('editExternalId'); if (editExternalIdEl) editExternalIdEl.value = user.externalId || '';
-            const editRoleIdEl = document.getElementById('editRoleId'); if (editRoleIdEl) editRoleIdEl.value = (user.roleId ?? '');
-            const editTagsEl = document.getElementById('editTags'); if (editTagsEl) editTagsEl.value = (user.tags ?? '');
-            const editBranchIdEl = document.getElementById('editBranchId'); if (editBranchIdEl) editBranchIdEl.value = (user.branchId ?? '');
-            const editBranchNameEl = document.getElementById('editBranchName'); if (editBranchNameEl) editBranchNameEl.value = (user.branchName ?? '');
-            const editOperationIdEl = document.getElementById('editOperationId'); if (editOperationIdEl) editOperationIdEl.value = (user.operationId ?? '');
+            const editImageEl = document.getElementById('editImage'); if (editImageEl) editImageEl.value = merged.image || '';
+            const editExternalIdEl = document.getElementById('editExternalId'); if (editExternalIdEl) editExternalIdEl.value = merged.externalId || '';
+            const editRoleIdEl = document.getElementById('editRoleId'); if (editRoleIdEl) editRoleIdEl.value = (merged.roleId ?? '');
+            const editTagsEl = document.getElementById('editTags'); if (editTagsEl) editTagsEl.value = (merged.tags ?? '');
+            const editBranchIdEl = document.getElementById('editBranchId'); if (editBranchIdEl) editBranchIdEl.value = (merged.branchId ?? '');
+            const editBranchNameEl = document.getElementById('editBranchName'); if (editBranchNameEl) editBranchNameEl.value = (merged.branchName ?? '');
+            const editOperationIdEl = document.getElementById('editOperationId'); if (editOperationIdEl) editOperationIdEl.value = (merged.operationId ?? '');
 
             // --- Populate Department Dropdown ---
             const departmentDropdown = document.getElementById('editDepartmentName');
             populateDepartmentsDropdown(departmentDropdown).then(() => {
-                const targetDeptId = user.departmentId ?? user.department_id;
+                const targetDeptId = merged.departmentId ?? merged.department_id;
 
                 if (targetDeptId != null) {
                     const optionExists = Array.from(departmentDropdown.options).some(opt => opt.value === String(targetDeptId));
@@ -387,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Fallback: If ID match fails or ID is null, try matching by name
-                const targetDeptName = (user.departmentName || user.department || '').trim();
+                const targetDeptName = (merged.departmentName || merged.department || '').trim();
                 if (targetDeptName) {
                     const matchingOption = Array.from(departmentDropdown.options).find(opt => (opt.textContent || '').trim().toLowerCase() === targetDeptName.toLowerCase());
                     if (matchingOption) {
@@ -397,7 +486,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // --- Initialize Address Dropdowns for Edit Modal ---
-            initializeAddressDropdownsForEdit(user);
+            initializeAddressDropdownsForEdit({
+                province: merged.province || null,
+                city: merged.city || null,
+                barangay: merged.barangay || null
+            });
 
             // --- Show Modal ---
             editUserModal.querySelector('.main-tab-button').click();
@@ -534,23 +627,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tin = document.getElementById('newTin')?.value?.trim() || '';
                 const sss = document.getElementById('newSss')?.value?.trim() || '';
                 const philhealth = document.getElementById('newPhilhealth')?.value?.trim() || '';
-                // Additional fields to mirror /api/users
-                const image = document.getElementById('newImage')?.value?.trim() || '';
-                const externalId = document.getElementById('newExternalId')?.value?.trim() || '';
-                const roleIdRaw = document.getElementById('newRoleId')?.value?.trim() || '';
-                const tags = document.getElementById('newTags')?.value?.trim() || '';
-                const branchIdRaw = document.getElementById('newBranchId')?.value?.trim() || '';
-                const branchName = document.getElementById('newBranchName')?.value?.trim() || '';
-                const operationIdRaw = document.getElementById('newOperationId')?.value?.trim() || '';
                 const isActiveNew = document.getElementById('newIsActive') ? document.getElementById('newIsActive').checked : true;
-
-                const toNumOrNull = (v) => {
-                    const n = parseInt(v, 10);
-                    return Number.isNaN(n) ? null : n;
-                };
-                const roleId = toNumOrNull(roleIdRaw);
-                const branchId = toNumOrNull(branchIdRaw);
-                const operationId = toNumOrNull(operationIdRaw);
 
                 if (departmentId == null) {
                     markFieldError(deptSelect, 'Please select a department.');
@@ -562,10 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     fullName, email, password, position, mobileNumber, rfId,
                     departmentId, departmentName, province, city, barangay,
                     birthday, dateOfHire, tin, sss, philhealth,
-                    image: image || null, isActive: !!isActiveNew,
-                    externalId: externalId || null, roleId: roleId ?? null,
-                    tags: tags || null, branchId: branchId ?? null, branchName: branchName || null,
-                    operationId: operationId ?? null, isDeleted: null, token: null
+                    isActive: !!isActiveNew,
                 };
 
                 if (usersLoaded) {
@@ -729,12 +803,17 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const UPDATE_API_URL = `${USERS_API_URL}/${userId}`;
                 const resp = await fetch(UPDATE_API_URL, {
-                    method: 'PUT',
+                    method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 const data = await resp.json().catch(() => ({}));
                 if (!resp.ok) {
+                    if (resp.status === 403) {
+                        const msg = data?.message || 'Forbidden: You do not have permission to update this user.';
+                        editUserFormError.textContent = msg;
+                        return;
+                    }
                     throw new Error(data?.message || `Failed to update user (status ${resp.status})`);
                 }
                 editUserModal.classList.add('hidden');
@@ -752,6 +831,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const responseData = await response.json();
                 let usersList = responseData.data || responseData.content || responseData;
                 if (!Array.isArray(usersList)) throw new Error('User data from API is not a valid array.');
+                // Normalize minimal fields expected by the table & filters
+                usersList = usersList.map(u => {
+                    const first = u.user_fname || u.firstName || u.first_name || u.fname || '';
+                    const middle = u.user_mname || u.middleName || u.middle_name || '';
+                    const last = u.user_lname || u.lastName || u.last_name || u.lname || '';
+                    const concatFirstLast = [u.user_fname, u.user_lname].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+                    const computedFull = [first, middle, last].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+                    const fullName = concatFirstLast || u.fullName || u.full_name || u.name || computedFull || '';
+                    const email = u.email || u.user_email || u.username || '';
+                    let departmentName = u.departmentName || u.department_name || u.dept_name || '';
+                    if (!departmentName && u.department && typeof u.department === 'object') {
+                        departmentName = u.department.name || u.department.departmentName || '';
+                    }
+                    const departmentId = u.departmentId ?? u.department_id ?? u.dept_id ?? (u.department && typeof u.department === 'object' ? (u.department.id ?? u.department.departmentId ?? null) : null);
+                    const userId = u.userId ?? u.id ?? u.user_id ?? u.ID ?? u._id ?? null;
+                    return { ...u, fullName, email, departmentName, departmentId, userId };
+                });
                 allUsers = usersList;
                 usersLoaded = true;
                 renderTable();
@@ -778,22 +874,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     provinceSelect.appendChild(opt);
                 });
 
-                const userProvince = (user.province || '').trim();
-                const matchingProvince = allProvinces.find(p => p.prov_desc === userProvince);
+                const userProvince = (user.province || '').trim().toLowerCase();
+                const matchingProvince = allProvinces.find(p => (p.prov_desc || '').trim().toLowerCase() === userProvince);
                 if (matchingProvince) {
                     provinceSelect.value = matchingProvince.prov_code;
                 }
                 handleEditProvinceChange();
 
-                const userCity = (user.city || '').trim();
-                const matchingCity = allCities.find(c => c.prov_code === provinceSelect.value && c.city_desc === userCity);
+                const userCity = (user.city || '').trim().toLowerCase();
+                const matchingCity = allCities.find(c => c.prov_code === provinceSelect.value && (c.city_desc || '').trim().toLowerCase() === userCity);
                 if (matchingCity) {
                     citySelect.value = matchingCity.city_code;
                 }
                 handleEditCityChange();
 
-                const userBarangay = (user.barangay || '').trim();
-                const matchingBarangay = allBarangays.find(b => b.city_code === citySelect.value && b.brgy_desc === userBarangay);
+                const userBarangay = (user.barangay || '').trim().toLowerCase();
+                const matchingBarangay = allBarangays.find(b => b.city_code === citySelect.value && (b.brgy_desc || '').trim().toLowerCase() === userBarangay);
                 if (matchingBarangay) {
                     barangaySelect.value = matchingBarangay.brgy_code;
                 }
