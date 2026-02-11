@@ -2,16 +2,26 @@
   "name": "vertex-erp-backend",
   "version": "1.0.0",
   "description": "Backend server for the VERTEX ERP HR users application.",
-  "main": "server_users.js",
+  "main": "src/server_users.js",
   "scripts": {
-    "start": "node server_users.js",
+    "dev": "nodemon src/server_users.js",
+    "build": "babel src -d dist",
+    "start": "node dist/server_users.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "axios": "^1.7.2",
+    "axios": "^1.12.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "express": "^4.19.2"
+    "express": "^4.21.2",
+    "multer": "^2.0.2"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.25.9",
+    "@babel/core": "^7.25.9",
+    "@babel/preset-env": "^7.25.9",
+    "nodemon": "^3.1.7"
   }
 }

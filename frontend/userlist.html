@@ -10,13 +10,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="vos.css" />
-
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; }
         #usersTbody .fullname-cell { cursor: pointer; }
-        /* Tab Styles */
         .tab-button.active { background-color: #1e88e5; color: white; }
         .subtab-button.active { background-color: #e3f2fd; color: #1e88e5; }
+        .preview-img { max-height: 120px; border-radius: 8px; }
+        .sig-canvas { width: 100%; height: 160px; background: #fff; border: 1px dashed #cbd5e1; border-radius: 8px; }
     </style>
 </head>
 <body class="text-gray-800 bg-slate-50">
@@ -49,6 +49,8 @@
                             <input id="searchBox" type="search" class="input w-full" placeholder="Search by name, email or department" />
                         </div>
                     </div>
+
+                    <!-- Email filter -->
                     <fieldset class="md:col-span-3">
                         <legend class="sr-only">Email filter</legend>
                         <div class="flex items-center gap-4 pt-1">
@@ -62,319 +64,330 @@
                             </label>
                         </div>
                     </fieldset>
+
+                    <!-- Status filter (NEW) -->
+                    <fieldset class="md:col-span-3">
+                        <legend class="sr-only">Status filter</legend>
+                        <div class="flex items-center gap-4 pt-1">
+                            <label class="flex items-center gap-2">
+                                <input id="showActiveCheckbox" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" checked />
+                                <span class="text-sm">Active</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input id="showInactiveCheckbox" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" checked />
+                                <span class="text-sm">Inactive</span>
+                            </label>
+                        </div>
+                    </fieldset>
+
                     <div class="md:col-span-3">
-                        <label for="pageSize" class="label">Rows per page</label>
-                        <select id="pageSize" class="input mt-1 w-full md:w-auto">
-                            <option value="5">5</option>
-                            <option value="10" selected>10</option>
-                            <option value="20">20</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
+                        <label class="label">Page size</label>
+                        <select id="pageSize" class="input mt-1" disabled><option>15</option></select>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="overflow-x-auto">
-            <table class="vos-table">
-                <thead>
-                <tr>
-                    <th class="w-16">#</th>
-                    <th>Full Name</th>
-                    <th>Email</th>
-                    <th>Department</th>
-                </tr>
-                </thead>
-                <tbody id="usersTbody">
-                <tr>
-                    <td colspan="4" class="text-center text-slate-500 py-12">Loading...</td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
+            <div class="overflow-x-auto">
+                <table class="vos-table">
+                    <thead class="bg-slate-50">
+                    <tr>
+                        <th class="py-3 px-5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
+                        <th class="py-3 px-5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Department</th>
+                        <th class="py-3 px-5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Designation</th>
+                    </tr>
+                    </thead>
+                    <tbody id="usersTbody" class="divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
 
-        <nav class="flex items-center justify-between p-4 border-t border-slate-200 bg-slate-50/50" aria-label="Table navigation">
-            <div class="text-sm text-slate-600" id="resultInfo" role="status" aria-live="polite">
-                Showing 0 to 0 of 0 results.
+            <div class="vos-table-footer">
+                <div id="resultInfo" class="text-sm text-slate-500"></div>
+                <div class="flex items-center gap-2">
+                    <button id="prevBtn" class="vos-btn-icon" disabled>&laquo;</button>
+                    <span id="pageIndicator" class="text-sm font-medium">1</span>
+                    <button id="nextBtn" class="vos-btn-icon">&raquo;</button>
+                </div>
             </div>
-            <div class="flex items-center gap-2">
-                <button id="prevBtn" class="vos-btn" type="button">Previous</button>
-                <span id="pageIndicator" class="text-sm font-medium text-slate-700 px-2" aria-label="Current Page">1 / 1</span>
-                <button id="nextBtn" class="vos-btn" type="button">Next</button>
-            </div>
-        </nav>
+        </div>
     </div>
 </main>
 
-<div id="newUserModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden" role="dialog" aria-modal="true" aria-labelledby="newUserModalTitle">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
-        <header class="p-4 border-b">
-            <h3 id="newUserModalTitle" class="text-lg font-semibold">Add New User</h3>
-            <p class="text-sm text-slate-500">Fill out the user information below.</p>
+<!-- ========== Add User Modal ========== -->
+<div id="newUserModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+    <div class="vos-modal max-w-4xl w-full">
+        <header class="vos-modal-header">
+            <h3 class="text-xl font-semibold text-slate-900">Add New User</h3>
         </header>
-        <div class="overflow-y-auto flex-grow p-6">
-            <form id="newUserForm" class="space-y-4">
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                        <label for="newFirstName" class="label">First Name</label>
-                        <input type="text" id="newFirstName" class="input" required />
+        <div class="p-6">
+            <form id="newUserForm" class="space-y-6">
+                <!-- Personal -->
+                <div class="space-y-4">
+                    <h4 class="font-semibold text-slate-700 border-b pb-2">Personal Information</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="newFirstName" class="label">First Name</label>
+                            <input type="text" id="newFirstName" name="firstName" class="input" required>
+                        </div>
+                        <div>
+                            <label for="newMiddleName" class="label">Middle Name</label>
+                            <input type="text" id="newMiddleName" name="middleName" class="input">
+                        </div>
+                        <div>
+                            <label for="newLastName" class="label">Last Name</label>
+                            <input type="text" id="newLastName" name="lastName" class="input" required>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="newContact" class="label">Contact Number</label>
+                            <input type="tel" id="newContact" name="contact" class="input">
+                        </div>
+                        <div>
+                            <label for="newBirthday" class="label">Birthday</label>
+                            <input type="date" id="newBirthday" name="birthday" class="input">
+                        </div>
                     </div>
                     <div>
-                        <label for="newMiddleName" class="label">Middle Name</label>
-                        <input type="text" id="newMiddleName" class="input" />
+                        <label class="label">Address</label>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <select id="newProvince" name="province" class="input"></select>
+                            <select id="newCity" name="city" class="input"></select>
+                            <select id="newBarangay" name="barangay" class="input"></select>
+                        </div>
                     </div>
-                    <div>
-                        <label for="newLastName" class="label">Last Name</label>
-                        <input type="text" id="newLastName" class="input" required />
-                    </div>
-                    <div>
-                        <label for="newEmail" class="label">Email</label>
-                        <input type="email" id="newEmail" class="input" />
-                    </div>
-                    <div>
-                        <label for="newPassword" class="label">Password</label>
-                        <input type="password" id="newPassword" class="input" required autocomplete="new-password" />
-                    </div>
-                    <div>
-                        <label for="newPasswordConfirm" class="label">Confirm Password</label>
-                        <input type="password" id="newPasswordConfirm" class="input" required autocomplete="new-password" />
-                    </div>
-                    <div>
-                        <label for="newContact" class="label">Mobile Number</label>
-                        <input type="tel" id="newContact" class="input" />
-                    </div>
-                    <div>
-                        <label for="newRfid" class="label">RFID</label>
-                        <input type="text" id="newRfid" class="input" />
-                    </div>
-                    <div>
-                        <label for="newPosition" class="label">Position</label>
-                        <input type="text" id="newPosition" class="input" />
-                    </div>
-                    <div>
-                        <label for="newDepartmentName" class="label">Department</label>
-                        <select id="newDepartmentName" class="input" required>
-                            <option value="">Loading...</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="newProvince" class="label">Province</label>
-                        <select id="newProvince" class="input">
-                            <option value="">Loading...</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="newCity" class="label">City / Municipality</label>
-                        <select id="newCity" class="input" disabled>
-                            <option value="">Select a province first</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="newBarangay" class="label">Barangay</label>
-                        <select id="newBarangay" class="input" disabled>
-                            <option value="">Select a city first</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="newBirthday" class="label">Birthday</label>
-                        <input type="date" id="newBirthday" class="input" />
-                    </div>
-                    <div>
-                        <label for="newDateHired" class="label">Date Hired</label>
-                        <input type="date" id="newDateHired" class="input" />
-                    </div>
-                    <div></div>
-                    <div>
-                        <label for="newTin" class="label">TIN</label>
-                        <input type="text" id="newTin" class="input" />
-                    </div>
-                    <div>
-                        <label for="newSss" class="label">SSS</label>
-                        <input type="text" id="newSss" class="input" />
-                    </div>
-                    <div>
-                        <label for="newPhilhealth" class="label">PhilHealth</label>
-                        <input type="text" id="newPhilhealth" class="input" />
-                    </div>
-                    <div class="flex items-center pt-6 sm:col-span-3">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" id="newIsActive" class="h-4 w-4 rounded" checked> Is Active
-                        </label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="label">Emergency Contact Name</label>
+                            <input type="text" id="newEmergencyName" name="emergency_contact_name" class="input">
+                        </div>
+                        <div>
+                            <label class="label">Emergency Contact Number</label>
+                            <input type="text" id="newEmergencyPhone" name="emergency_contact_number" class="input">
+                        </div>
                     </div>
                 </div>
-                <p id="newUserFormError" class="text-danger text-sm" role="alert"></p>
+
+                <!-- Work & Account -->
+                <div class="space-y-4">
+                    <h4 class="font-semibold text-slate-700 border-b pb-2">Work &amp; Account</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="newDepartmentName" class="label">Department</label>
+                            <select id="newDepartmentName" name="department" class="input"></select>
+                        </div>
+                        <div>
+                            <label for="newDesignation" class="label">Designation</label>
+                            <input type="text" id="newDesignation" name="designation" class="input">
+                        </div>
+                        <div>
+                            <label for="newEmail" class="label">Email</label>
+                            <input type="email" id="newEmail" name="email" class="input">
+                        </div>
+                        <div>
+                            <label for="newPassword" class="label">Password</label>
+                            <input type="password" id="newPassword" name="password" class="input">
+                        </div>
+                        <div>
+                            <label for="newDateOfHire" class="label">Date of Hire</label>
+                            <input type="date" id="newDateOfHire" name="dateOfHire" class="input">
+                        </div>
+                        <div>
+                            <label for="newRfId" class="label">RF ID</label>
+                            <input type="text" id="newRfId" name="rf_id" class="input">
+                        </div>
+                        <div>
+                            <label for="newTin" class="label">TIN</label>
+                            <input type="text" id="newTin" name="tin" class="input">
+                        </div>
+                        <div>
+                            <label for="newSSS" class="label">SSS</label>
+                            <input type="text" id="newSSS" name="sss" class="input">
+                        </div>
+                        <div>
+                            <label for="newPhilhealth" class="label">Philhealth</label>
+                            <input type="text" id="newPhilhealth" name="philhealth" class="input">
+                        </div>
+                        <div>
+                            <label for="newPagibig" class="label">PAGIBIG</label>
+                            <input type="text" id="newPagibig" name="pagibig" class="input">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" id="newIsAdmin" name="isAdmin" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                            <label for="newIsAdmin" class="label m-0">Admin</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Media -->
+                <div class="space-y-4">
+                    <h4 class="font-semibold text-slate-700 border-b pb-2">Media</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="label">User Image</label>
+                            <input id="newUserImage" type="file" accept="image/*" class="input">
+                            <img id="newUserImagePreview" class="hidden preview-img mt-2" alt="User preview"/>
+                        </div>
+                        <div>
+                            <label class="label">Signature Image (Upload)</label>
+                            <input id="newSignatureFile" type="file" accept="image/*" class="input">
+                            <img id="newSignaturePreview" class="hidden preview-img mt-2" alt="Signature preview"/>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <label class="label">Signature Pad (optional)</label>
+                        <canvas id="newSignatureCanvas" class="sig-canvas"></canvas>
+                        <button type="button" id="newSignatureClear" class="vos-btn mt-2">Clear Signature</button>
+                    </div>
+                </div>
+
+                <p id="newUserFormError" class="text-sm text-danger"></p>
             </form>
         </div>
-        <footer class="flex justify-end gap-3 p-4 border-t border-slate-200 bg-slate-50">
+        <footer class="vos-modal-footer">
             <button type="button" id="cancelNewUserBtn" class="vos-btn">Cancel</button>
-            <button type="submit" form="newUserForm" class="vos-btn-primary">Create User</button>
+            <button type="submit" form="newUserForm" class="vos-btn-primary">Save User</button>
         </footer>
     </div>
 </div>
 
-<div id="editUserModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden" role="dialog" aria-modal="true" aria-labelledby="editUserModalTitle">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
-        <header class="p-4 border-b">
-            <h3 id="editUserModalTitle" class="text-lg font-semibold">Edit Employee</h3>
-            <p class="text-sm text-slate-500">Update user details and access permissions.</p>
+<!-- ========== Edit User Modal ========== -->
+<div id="editUserModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+    <div class="vos-modal max-w-5xl w-full">
+        <header class="vos-modal-header">
+            <h3 class="text-xl font-semibold text-slate-900">Edit User Details</h3>
         </header>
-        <div class="border-b border-slate-200 px-4">
-            <nav class="flex space-x-2" aria-label="Modal sections">
-                <button data-tab-target="#editUserInformation" class="main-tab-button active px-3 py-2 text-sm font-medium rounded-t-md">User Information</button>
-                <button data-tab-target="#editUserAccess" class="main-tab-button px-3 py-2 text-sm font-medium rounded-t-md">User Access</button>
-            </nav>
-        </div>
-        <div class="overflow-y-auto flex-grow">
-            <section id="editUserInformation" class="main-tab-content p-6" role="tabpanel">
-                <form id="editUserForm" class="space-y-4">
-                    <input type="hidden" id="editUserId">
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                            <label for="editFirstName" class="label">First Name</label>
-                            <input type="text" id="editFirstName" class="input" required />
-                        </div>
-                        <div>
-                            <label for="editMiddleName" class="label">Middle Name</label>
-                            <input type="text" id="editMiddleName" class="input" />
-                        </div>
-                        <div>
-                            <label for="editLastName" class="label">Last Name</label>
-                            <input type="text" id="editLastName" class="input" required />
-                        </div>
-                        <div>
-                            <label for="editEmail" class="label">Email</label>
-                            <input type="email" id="editEmail" class="input" />
-                        </div>
-                        <div>
-                            <label for="editPassword" class="label">New Password (optional)</label>
-                            <input type="password" id="editPassword" class="input" autocomplete="new-password" />
-                        </div>
-                        <div>
-                            <label for="editPasswordConfirm" class="label">Confirm New Password</label>
-                            <input type="password" id="editPasswordConfirm" class="input" autocomplete="new-password" />
-                        </div>
-                        <div>
-                            <label for="editContact" class="label">Mobile Number</label>
-                            <input type="tel" id="editContact" class="input" />
-                        </div>
-                        <div>
-                            <label for="editRfid" class="label">RFID</label>
-                            <input type="text" id="editRfid" class="input" />
-                        </div>
-                        <div>
-                            <label for="editPosition" class="label">Position</label>
-                            <input type="text" id="editPosition" class="input" />
-                        </div>
-                        <div>
-                            <label for="editDepartmentName" class="label">Department</label>
-                            <select id="editDepartmentName" class="input" required><option value="">Loading...</option></select>
-                        </div>
-                        <div>
-                            <label for="editProvince" class="label">Province</label>
-                            <select id="editProvince" class="input"><option value="">Loading...</option></select>
-                        </div>
-                        <div>
-                            <label for="editCity" class="label">City / Municipality</label>
-                            <select id="editCity" class="input" disabled><option value="">Select a province first</option></select>
-                        </div>
-                        <div>
-                            <label for="editBarangay" class="label">Barangay</label>
-                            <select id="editBarangay" class="input" disabled><option value="">Select a city first</option></select>
-                        </div>
-                        <div>
-                            <label for="editBirthday" class="label">Birthday</label>
-                            <input type="date" id="editBirthday" class="input" />
-                        </div>
-                        <div>
-                            <label for="editDateHired" class="label">Date Hired</label>
-                            <input type="date" id="editDateHired" class="input" />
-                        </div>
-                        <div></div>
-                        <div>
-                            <label for="editTin" class="label">TIN</label>
-                            <input type="text" id="editTin" class="input" />
-                        </div>
-                        <div>
-                            <label for="editSss" class="label">SSS</label>
-                            <input type="text" id="editSss" class="input" />
-                        </div>
-                        <div>
-                            <label for="editPhilhealth" class="label">PhilHealth</label>
-                            <input type="text" id="editPhilhealth" class="input" />
-                        </div>
-                        <div>
-                            <label for="editImage" class="label">Image URL</label>
-                            <input type="text" id="editImage" class="input" placeholder="\\\\server\\path\\image.jpg or http://..." />
-                        </div>
-                        <div>
-                            <label for="editExternalId" class="label">External ID</label>
-                            <input type="text" id="editExternalId" class="input" />
-                        </div>
-                        <div>
-                            <label for="editRoleId" class="label">Role ID</label>
-                            <input type="number" id="editRoleId" class="input" />
-                        </div>
-                        <div>
-                            <label for="editTags" class="label">Tags</label>
-                            <input type="text" id="editTags" class="input" placeholder="Optional tags" />
-                        </div>
-                        <div>
-                            <label for="editBranchId" class="label">Branch ID</label>
-                            <input type="number" id="editBranchId" class="input" />
-                        </div>
-                        <div>
-                            <label for="editBranchName" class="label">Branch Name</label>
-                            <input type="text" id="editBranchName" class="input" />
-                        </div>
-                        <div>
-                            <label for="editOperationId" class="label">Operation ID</label>
-                            <input type="number" id="editOperationId" class="input" />
-                        </div>
-                        <div class="flex items-center pt-6 sm:col-span-3">
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" id="editIsActive" class="h-4 w-4 rounded"> Is Active
-                            </label>
-                        </div>
-                    </div>
-                    <p id="editUserFormError" class="text-danger text-sm" role="alert"></p>
-                </form>
-            </section>
-            <section id="editUserAccess" class="main-tab-content hidden h-full" role="tabpanel">
-                <div class="flex h-full">
-                    <div class="border-r border-slate-200 p-2 w-40">
-                        <nav class="flex flex-col space-y-1" aria-label="Access subsections">
-                            <button data-subtab-target="#editModuleAccess" class="sub-tab-button active w-full text-left text-sm p-2 rounded-md">Module Access</button>
-                            <button data-subtab-target="#editTaskbarAccess" class="sub-tab-button w-full text-left text-sm p-2 rounded-md">Taskbar Access</button>
-                        </nav>
-                    </div>
-                    <div class="flex-grow p-4">
-                        <div id="editModuleAccess" class="sub-tab-content" role="tabpanel">
-                            <div class="grid grid-cols-2 gap-4 h-full">
-                                <div>
-                                    <h4 class="font-semibold mb-2">User Module Access</h4>
-                                    <input type="search" class="input w-full" placeholder="Search user modules...">
-                                    <div class="border rounded-md mt-2 h-80 overflow-y-auto p-2 text-sm text-slate-500">List of assigned modules...</div>
+        <div class="p-6">
+            <section>
+                <div class="flex border-b">
+                    <button class="tab-button active" data-tab="editProfile" role="tab">Profile</button>
+                </div>
+                <div class="pt-6">
+                    <div id="editProfile" class="tab-content" role="tabpanel">
+                        <form id="editUserForm" class="space-y-6" data-user-id="">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+                                <!-- Left -->
+                                <div class="space-y-4">
+                                    <h4 class="font-semibold text-slate-700 border-b pb-2">Personal Information</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label class="label">First Name</label>
+                                            <input type="text" id="editFirstName" name="firstName" class="input" required>
+                                        </div>
+                                        <div>
+                                            <label class="label">Middle Name</label>
+                                            <input type="text" id="editMiddleName" name="middleName" class="input">
+                                        </div>
+                                        <div>
+                                            <label class="label">Last Name</label>
+                                            <input type="text" id="editLastName" name="lastName" class="input" required>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="label">Contact Number</label>
+                                            <input type="tel" id="editContact" name="contact" class="input">
+                                        </div>
+                                        <div>
+                                            <label class="label">Birthday</label>
+                                            <input type="date" id="editBirthday" name="birthday" class="input">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="label">Address</label>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <select id="editProvince" name="province" class="input"></select>
+                                            <select id="editCity" name="city" class="input"></select>
+                                            <select id="editBarangay" name="barangay" class="input"></select>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="label">Emergency Contact Name</label>
+                                            <input type="text" id="editEmergencyName" name="emergency_contact_name" class="input">
+                                        </div>
+                                        <div>
+                                            <label class="label">Emergency Contact Number</label>
+                                            <input type="text" id="editEmergencyPhone" name="emergency_contact_number" class="input">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 class="font-semibold mb-2">Modules Available</h4>
-                                    <input type="search" class="input w-full" placeholder="Search available modules...">
-                                    <div class="border rounded-md mt-2 h-80 overflow-y-auto p-2 text-sm text-slate-500">List of available modules...</div>
+
+                                <!-- Right -->
+                                <div class="space-y-4">
+                                    <h4 class="font-semibold text-slate-700 border-b pb-2">Work &amp; Account</h4>
+                                    <div>
+                                        <label class="label">Department</label>
+                                        <select id="editDepartmentName" name="department" class="input"></select>
+                                    </div>
+                                    <div>
+                                        <label class="label">Designation</label>
+                                        <input type="text" id="editDesignation" name="designation" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">Email</label>
+                                        <input type="email" id="editEmail" name="email" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">Password</label>
+                                        <input type="password" id="editPassword" name="password" class="input" placeholder="Leave blank to keep current password">
+                                    </div>
+                                    <div>
+                                        <label class="label">Date of Hire</label>
+                                        <input type="date" id="editDateOfHire" name="dateOfHire" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">RF ID</label>
+                                        <input type="text" id="editRfId" name="rf_id" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">TIN</label>
+                                        <input type="text" id="editTin" name="tin" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">SSS</label>
+                                        <input type="text" id="editSSS" name="sss" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">Philhealth</label>
+                                        <input type="text" id="editPhilhealth" name="philhealth" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">PAGIBIG</label>
+                                        <input type="text" id="editPagibig" name="pagibig" class="input">
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <input type="checkbox" id="editIsAdmin" name="isAdmin" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                                        <label for="editIsAdmin" class="label m-0">Admin</label>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <input type="checkbox" id="editIsDelete" name="isDelete" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                                        <label for="editIsDelete" class="label m-0">Inactive</label>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div id="editTaskbarAccess" class="sub-tab-content hidden" role="tabpanel">
-                            <div class="grid grid-cols-2 gap-4 h-full">
-                                <div>
-                                    <h4 class="font-semibold mb-2">User Taskbar Access</h4>
-                                    <div class="border rounded-md mt-2 h-80 overflow-y-auto p-2 text-sm text-slate-500">List of assigned taskbars...</div>
+
+                            <!-- Media -->
+                            <div class="space-y-4">
+                                <h4 class="font-semibold text-slate-700 border-b pb-2">Media</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="label">User Image</label>
+                                        <input id="editUserImage" type="file" accept="image/*" class="input">
+                                        <img id="editUserImagePreview" class="hidden preview-img mt-2" alt="User preview"/>
+                                    </div>
+                                    <div>
+                                        <label class="label">Signature Image (Upload)</label>
+                                        <input id="editSignatureFile" type="file" accept="image/*" class="input">
+                                        <img id="editSignaturePreview" class="hidden preview-img mt-2" alt="Signature preview"/>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 class="font-semibold mb-2">Taskbars Available</h4>
-                                    <div class="border rounded-md mt-2 h-80 overflow-y-auto p-2 text-sm text-slate-500">List of available taskbars...</div>
+                                <div class="mt-2">
+                                    <label class="label">Signature Pad (optional)</label>
+                                    <canvas id="editSignatureCanvas" class="sig-canvas"></canvas>
+                                    <button type="button" id="editSignatureClear" class="vos-btn mt-2">Clear Signature</button>
                                 </div>
                             </div>
-                        </div>
+                        </form>
                     </div>
                 </div>
             </section>

@@ -1,3 +1,4 @@
+
 /* ============ VOS Design Tokens ============ */
 :root{
     /* Brand palette */
@@ -135,6 +136,16 @@ button:focus, input:focus, select:focus, textarea:focus{
     font-weight: 600;
 }
 
+/* Table footer used for paging info */
+.vos-table-footer{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:.75rem 1rem;
+    border-top:1px solid var(--vos-border);
+    background:#fff;
+}
+
 /* ============ Forms helpers (used by your script) ============ */
 .label{
     display:block;
@@ -162,6 +173,54 @@ button:focus, input:focus, select:focus, textarea:focus{
     color: #94a3b8; /* Tailwind slate-400 */
 }
 #searchBox { padding-left: 2.5rem; }
+
+/* ============ Modals ============ */
+.vos-modal{
+    width:100%;
+    max-width:48rem; /* default; can be overridden by extra class in HTML */
+    background:var(--vos-card);
+    border:1px solid var(--vos-border);
+    border-radius:.75rem;
+    box-shadow: 0 20px 40px rgba(2,6,23,.2), 0 2px 8px rgba(2,6,23,.1);
+    display:flex;
+    flex-direction:column;
+    max-height: calc(100vh - 4rem);
+    overflow:hidden; /* keep header/footer visible, scroll body */
+}
+.vos-modal > .p-6{ /* modal body */
+    overflow:auto;
+}
+.vos-modal-header{
+    padding:1rem 1.25rem;
+    border-bottom:1px solid var(--vos-border);
+    background:var(--vos-card);
+    position:sticky;
+    top:0;
+    z-index:1;
+}
+.vos-modal-footer{
+    display:flex;
+    justify-content:flex-end;
+    gap:.75rem;
+    padding:1rem 1.25rem;
+    border-top:1px solid var(--vos-border);
+    background:var(--vos-card);
+    position:sticky;
+    bottom:0;
+    z-index:1;
+}
+
+/* ============ Tabs ============ */
+.tab-button, .subtab-button{
+    padding:.5rem .75rem;
+    margin-right:.25rem;
+    border-radius:.375rem .375rem 0 0;
+    font-weight:600;
+    color:#475569; /* slate-600 */
+    border:1px solid transparent;
+}
+.tab-button:hover, .subtab-button:hover{ background:#f1f5f9; }
+/* Active states for tabs are defined inline in userlist.html to ensure priority */
 
 /* ============ Utilities ============ */
 .text-danger{ color: var(--vos-danger); }

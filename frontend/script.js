@@ -1,1048 +1,653 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // If opened via local static servers (e.gc., 63342, 63343, etc.), redirect to backend origin (3002) to avoid CORS and allow cookies
-    const isLocalHost = (hostname) => hostname === 'localhost' || hostname === '127.0.0.1';
-    if (isLocalHost(window.location.hostname) && window.location.port && window.location.port !== '3002') {
-        const file = window.location.pathname.split('/').pop() || 'index.html';
-        const query = window.location.search || '';
-        const hash = window.location.hash || '';
-        window.location.href = `http://localhost:3002/${file}${query}${hash}`;
-        return;
-    }
-    // API endpoints: same-origin if already on backend, otherwise target backend at localhost:3002 (for file:// fallback)
-    const isFileProtocol = window.location.protocol === 'file:';
-    const API_BASE = (window.location.port === '3002' && isLocalHost(window.location.hostname)) ? '' : (isFileProtocol ? 'http://localhost:3002' : '');
-    const USERS_API_URL = `${API_BASE}/items/user`;
-    const DEPARTMENTS_API_URL = `${API_BASE}/items/department`;
-    const LOGIN_URL = `${API_BASE}/api/login`;
-    const AUTH_CURRENT_URL = `${API_BASE}/api/auth/current-login`;
+// frontend/script.js
+// Works for both index.html (login) and userlist.html (dashboard)
 
-    // --- Expose helpers needed by JavaFX WebView injector ---
-    const attemptLogin = async (email, password) => {
-        try {
-            console.log('[SPA] Attempting login to', LOGIN_URL);
-            const r = await fetch(LOGIN_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ email, password })
-            });
-            const data = await r.json().catch(() => ({}));
-            console.log('[SPA] /api/login status', r.status, data);
-            if (r.ok && (data?.ok === true || data?.user)) {
-                sessionStorage.setItem('isLoggedIn', 'true');
-                window.location.href = 'userlist.html';
-                return true;
-            }
-            return false;
-        } catch (e) {
-            console.error('[SPA] Login error', e);
-            return false;
-        }
-    };
+const API_BASE = ''; // same-origin
 
-    const fetchCurrentLogin = async (force = false) => {
-        try {
-            const r = await fetch(AUTH_CURRENT_URL, { credentials: 'include' });
-            const data = await r.json().catch(() => ({}));
-            console.log('[SPA] current-login status', r.status, data);
-            if (r.ok && (data?.ok === true || data?.user)) {
-                sessionStorage.setItem('isLoggedIn', 'true');
-                if (document.getElementById('loginForm')) {
-                    window.location.href = 'userlist.html';
-                }
-                return data;
-            }
-        } catch (e) {
-            console.warn('[SPA] current-login failed', e);
-        }
-        return null;
-    };
+/* ---------- CONFIG ---------- */
+const FILE_HOST = 'http://192.168.1.154';
 
-    window.fetchCurrentLogin = fetchCurrentLogin;
-    window.autoLogin = (email, password) => attemptLogin(email, password);
+/* ---------- Tiny DOM helpers ---------- */
+const $ = (sel) => document.querySelector(sel);
+const $all = (sel) => Array.from(document.querySelectorAll(sel));
+const getEl = (id) => document.getElementById(id);
+const setVal = (id, v = '') => { const el = getEl(id); if (el) el.value = v ?? ''; };
+const setChecked = (id, b) => { const el = getEl(id); if (el) el.checked = !!b; };
+const setSelect = (id, v) => { const el = getEl(id); if (el) el.value = (v ?? ''); };
 
-    window.addEventListener('VOS_FETCH_CURRENT_LOGIN', () => fetchCurrentLogin(true));
-    window.addEventListener('VOS_CREDENTIALS', (e) => {
-        try {
-            const detail = e?.detail || {};
-            const email = detail.email || detail.username || detail.user_email;
-            const password = detail.password || detail.user_password;
-            const form = document.getElementById('loginForm');
-            if (form) {
-                if (email) form.email.value = email;
-                if (password) form.password.value = password;
-            }
-            if (email && password) attemptLogin(email, password);
-        } catch (_) {}
+/* ---------- API helper ---------- */
+async function api(path, opts = {}) {
+    const res = await fetch(API_BASE + path, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+        ...opts
     });
+    if (!res.ok) {
+        let msg = '';
+        try { msg = await res.text(); } catch {}
+        throw new Error(msg || `${res.status}`);
+    }
+    const ct = res.headers.get('content-type') || '';
+    return ct.includes('application/json') ? res.json() : res.text();
+}
 
-    /**
-     * Handles logic for the LOGIN PAGE (index.html)
-     */
-    const handleLoginPage = () => {
-        const loginForm = document.getElementById('loginForm');
-        const errorMessage = document.getElementById('errorMessage');
+/* ---------- Media path normalizer ---------- */
+function normalizeMediaUrl(u) {
+    if (!u) return null;
+    if (/^https?:\/\//i.test(u) || u.startsWith('/uploads/')) return u;
+    if (FILE_HOST && (u.startsWith('\\\\') || u.startsWith('//') || u.startsWith('file://'))) {
+        const cleaned = u.replace(/^file:\/\//i, '').replace(/\\/g, '/').replace(/^\/+/, '');
+        return `${FILE_HOST}/${cleaned}`;
+    }
+    return null;
+}
 
-        if (!loginForm) return;
+/* ---------- Upload helpers ---------- */
+async function uploadFile(inputId, route) {
+    const input = getEl(inputId);
+    if (!input || !input.files || !input.files[0]) return null;
+    const fd = new FormData();
+    fd.append('file', input.files[0]);
+    try {
+        const res = await fetch(route, { method: 'POST', body: fd, credentials: 'include' });
+        if (!res.ok) throw new Error(await res.text());
+        const json = await res.json();
+        return json.url || null;
+    } catch (e) {
+        console.warn(`Upload failed for ${route}:`, e.message || e);
+        return null;
+    }
+}
 
-        fetchCurrentLogin(true);
+function wireImagePicker(inputId, previewImgId) {
+    const input = getEl(inputId), preview = getEl(previewImgId);
+    if (!input || !preview) return;
+    input.addEventListener('change', () => {
+        const f = input.files && input.files[0];
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = () => { preview.src = r.result; preview.classList.remove('hidden'); };
+        r.readAsDataURL(f);
+    });
+}
 
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (errorMessage) errorMessage.textContent = '';
-            const email = loginForm.email.value;
-            const password = loginForm.password.value;
-            const ok = await attemptLogin(email, password);
-            if (!ok) {
-                if (errorMessage) errorMessage.textContent = 'Invalid email or password.';
-            }
-        });
+/* ---------- Signature Pad ---------- */
+function makeSignaturePad(canvasId, clearBtnId) {
+    const canvas = getEl(canvasId);
+    if (!canvas) return null;
+
+    canvas.style.touchAction = 'none';
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    let hasInk = false;
+
+    function resizeBackingStore() {
+        const cssW = canvas.clientWidth || 600;
+        const cssH = canvas.clientHeight || 180;
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+
+        canvas.width  = Math.floor(cssW * dpr);
+        canvas.height = Math.floor(cssH * dpr);
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawBaseline(cssW, cssH);
+        hasInk = false;
+    }
+
+    function drawBaseline(cssW, cssH) {
+        ctx.save();
+        ctx.clearRect(0, 0, cssW, cssH);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        const y = cssH - 20;
+        ctx.moveTo(8, y);
+        ctx.lineTo(cssW - 8, y);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    const pos = (e) => ({ x: e.offsetX, y: e.offsetY });
+
+    let drawing = false, last = null;
+    canvas.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        canvas.setPointerCapture(e.pointerId);
+        drawing = true; last = pos(e);
+    });
+    canvas.addEventListener('pointermove', e => {
+        if (!drawing) return;
+        const p = pos(e);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        last = p;
+        hasInk = true;
+    });
+    const stop = () => { drawing = false; last = null; };
+    canvas.addEventListener('pointerup', stop);
+    canvas.addEventListener('pointerleave', stop);
+    canvas.addEventListener('pointercancel', stop);
+
+    const clearBtn = getEl(clearBtnId);
+    if (clearBtn) clearBtn.addEventListener('click', () => resizeBackingStore());
+
+    const init = () => resizeBackingStore();
+    setTimeout(init, 0);
+    window.addEventListener('resize', init);
+
+    return {
+        clear: init,
+        hasInk: () => hasInk,
+        toDataURL: () => canvas.toDataURL('image/png')
     };
+}
 
-    /**
-     * Handles logic for the USER LIST PAGE (userlist.html)
-     */
-    const handleUserListPage = () => {
-        const usersTbody = document.getElementById('usersTbody');
-        if (!usersTbody) return;
+/* ---------- Login ---------- */
+async function initLogin() {
+    const form = $('#loginForm');
+    if (!form) return;
+    const errorEl = $('#errorMessage');
 
-        if (sessionStorage.getItem('isLoggedIn') !== 'true') {
-            window.location.href = 'index.html';
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorEl.textContent = '';
+        const email = $('#email').value.trim();
+        const password = $('#password').value;
+
+        try {
+            await api('/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+            window.location.href = 'userlist.html';
+        } catch {
+            errorEl.textContent = 'Invalid email or password.';
+        }
+    });
+}
+
+/* ---------- Dashboard ---------- */
+async function initDashboard() {
+    const usersTbody = $('#usersTbody');
+    if (!usersTbody) return;
+
+    // Controls
+    const searchBox = $('#searchBox');
+    const withEmailCb = $('#withEmailCheckbox');
+    const withoutEmailCb = $('#withoutEmailCheckbox');
+
+    // NEW: status checkboxes
+    const showActiveCb = $('#showActiveCheckbox');
+    const showInactiveCb = $('#showInactiveCheckbox');
+
+    const resultInfo = $('#resultInfo');
+    const pageIndicator = $('#pageIndicator');
+    const prevBtn = $('#prevBtn');
+    const nextBtn = $('#nextBtn');
+    const logoutBtn = $('#logoutBtn');
+
+    // Modals & forms
+    const newUserBtn = $('#newUserBtn');
+    const newUserModal = $('#newUserModal');
+    const newUserForm = $('#newUserForm');
+    const cancelNewUserBtn = $('#cancelNewUserBtn');
+    const newErr = $('#newUserFormError');
+
+    const editUserModal = $('#editUserModal');
+    const editUserForm = $('#editUserForm');
+    const cancelEditUserBtn = $('#cancelEditUserBtn');
+
+    // File inputs / previews
+    wireImagePicker('newUserImage', 'newUserImagePreview');
+    wireImagePicker('editUserImage', 'editUserImagePreview');
+    wireImagePicker('newSignatureFile', 'newSignaturePreview');
+    wireImagePicker('editSignatureFile', 'editSignaturePreview');
+
+    // Signature pads
+    const newSigPad  = makeSignaturePad('newSignatureCanvas',  'newSignatureClear');
+    const editSigPad = makeSignaturePad('editSignatureCanvas', 'editSignatureClear');
+
+    // Selects
+    const newDepartmentName = $('#newDepartmentName');
+    const editDepartmentName = $('#editDepartmentName');
+
+    // LGU caches
+    const citiesByProvince = new Map();
+    const brgysByCity = new Map();
+
+    async function loadDepartments() {
+        const { data } = await api('/items/department');
+        const opts = ['<option value="">Select a department</option>']
+            .concat((data || []).map(d => `<option value="${d.department_id}">${d.department_name}</option>`));
+        if (newDepartmentName)  newDepartmentName.innerHTML  = opts.join('');
+        if (editDepartmentName) editDepartmentName.innerHTML = opts.join('');
+    }
+
+    async function loadLgu() {
+        const [province, city, brgy] = await Promise.all([
+            fetch('/data/province.json').then(r => r.json()),
+            fetch('/data/city.json').then(r => r.json()),
+            fetch('/data/barangay.json').then(r => r.json()),
+        ]);
+
+        function option(val, label){ return `<option value="${val}">${label}</option>`; }
+
+        function populateProvinces(prefix, list) {
+            const el = getEl(`${prefix}Province`);
+            const cEl = getEl(`${prefix}City`);
+            const bEl = getEl(`${prefix}Barangay`);
+            if (!el) return;
+            el.innerHTML = ['<option value="">Select a province</option>']
+                .concat((list || []).map(p => `<option value="${p.province_code}">${p.province_name}</option>`)).join('');
+            if (cEl) cEl.innerHTML = '<option value="">Select a province first</option>';
+            if (bEl) bEl.innerHTML = '<option value="">Select a city first</option>';
+        }
+
+        (city || []).forEach(c => {
+            const list = citiesByProvince.get(c.province_code) || [];
+            list.push(c); citiesByProvince.set(c.province_code, list);
+        });
+
+        (brgy || []).forEach(b => {
+            const list = brgysByCity.get(b.city_code) || [];
+            list.push(b); brgysByCity.set(b.city_code, list);
+        });
+
+        populateProvinces('new', province || []);
+        populateProvinces('edit', province || []);
+        bindCascades('new');
+        bindCascades('edit');
+    }
+
+    function option(val, label){ return `<option value="${val}">${label}</option>`; }
+    function populateCities(prefix, provinceCode) {
+        const el = getEl(`${prefix}City`);
+        const bEl = getEl(`${prefix}Barangay`);
+        if (!el) return;
+        if (!provinceCode) {
+            el.innerHTML = option('', 'Select a province first');
+            if (bEl) bEl.innerHTML = option('', 'Select a city first');
             return;
         }
+        const cities = (citiesByProvince.get(provinceCode) || []);
+        el.innerHTML = [option('', 'Select a city/municipality')]
+            .concat(cities.map(c => option(c.city_code, c.city_name))).join('');
+        if (bEl) bEl.innerHTML = option('', 'Select a city first');
+    }
+    function populateBarangays(prefix, cityCode) {
+        const el = getEl(`${prefix}Barangay`);
+        if (!el) return;
+        if (!cityCode) { el.innerHTML = option('', 'Select a city first'); return; }
+        const brgys = (brgysByCity.get(cityCode) || []);
+        el.innerHTML = [option('', 'Select a barangay')]
+            .concat(brgys.map(b => option(b.brgy_code, b.brgy_name))).join('');
+    }
+    function bindCascades(prefix) {
+        const p = getEl(`${prefix}Province`);
+        const c = getEl(`${prefix}City`);
+        const b = getEl(`${prefix}Barangay`);
+        p?.addEventListener('change', () => { populateCities(prefix, p.value); if (b) b.innerHTML = option('', 'Select a city first'); });
+        c?.addEventListener('change', () => { populateBarangays(prefix, c.value); });
+    }
 
-        let allUsers = [];
-        let allProvinces = [];
-        let allCities = [];
-        let allBarangays = [];
-        let usersLoaded = false;
-        let searchTerm = '';
-        let currentPage = 1;
-        let pageSize = 10;
-        let showWithEmail = true;
-        let showWithoutEmail = true;
+    /* ---------- Users ---------- */
+    let ALL_USERS = [];
+    const PAGE_SIZE = 15;
+    let currentPage = 1;
 
-        const searchBox = document.getElementById('searchBox');
-        const pageSizeSelect = document.getElementById('pageSize');
-        const prevBtn = document.getElementById('prevBtn');
-        const nextBtn = document.getElementById('nextBtn');
-        const pageIndicator = document.getElementById('pageIndicator');
-        const resultInfo = document.getElementById('resultInfo');
-        const logoutBtn = document.getElementById('logoutBtn');
-        const withEmailCheckbox = document.getElementById('withEmailCheckbox');
-        const withoutEmailCheckbox = document.getElementById('withoutEmailCheckbox');
-        const newUserModal = document.getElementById('newUserModal');
-        const newUserForm = document.getElementById('newUserForm');
-        const cancelNewUserBtn = document.getElementById('cancelNewUserBtn');
-        const newUserFormError = document.getElementById('newUserFormError');
-        const editUserModal = document.getElementById('editUserModal');
-        const editUserForm = document.getElementById('editUserForm');
-        const cancelEditUserBtn = document.getElementById('cancelEditUserBtn');
-        const editUserFormError = document.getElementById('editUserFormError');
-        const newUserBtn = document.getElementById('newUserBtn');
+    async function loadUsers() {
+        const { data } = await api('/items/user');
+        // Normalize any legacy media URLs so browser won't try file://
+        ALL_USERS = (data || []).map(u => ({
+            ...u,
+            user_image: normalizeMediaUrl(u.user_image),
+            signature: normalizeMediaUrl(u.signature),
+            // If backend didn't send isDeleted for some reason, assume active (false)
+            isDeleted: typeof u.isDeleted === 'boolean' ? u.isDeleted : false,
+        }));
+        renderUsers();
+    }
 
-        withEmailCheckbox.checked = true;
-        withoutEmailCheckbox.checked = true;
+    function filterUsers() {
+        const search = (searchBox.value || '').toLowerCase();
 
-        // --- Generic Field Error Helpers ---
-        function ensureFieldErrorElement(inputEl) {
-            if (!inputEl) return null;
-            const next = inputEl.nextElementSibling;
-            if (next && next.classList.contains('field-error')) return next;
-            const p = document.createElement('p');
-            p.className = 'field-error text-red-600 text-xs mt-1';
-            inputEl.insertAdjacentElement('afterend', p);
-            return p;
-        }
+        // Email filters
+        const withEmail    = withEmailCb.checked;
+        const withoutEmail = withoutEmailCb.checked;
 
-        function markFieldError(inputEl, message) {
-            if (!inputEl) return;
-            inputEl.classList.add('border-red-500', 'focus:ring-red-500', 'focus:border-red-500');
-            const errEl = ensureFieldErrorElement(inputEl);
-            if (errEl) errEl.textContent = message || 'Invalid value';
-            const onInput = () => clearFieldError(inputEl);
-            inputEl.removeEventListener('input', onInput);
-            inputEl.addEventListener('input', onInput, { once: true });
-        }
+        // Status filters
+        const showActive   = showActiveCb?.checked ?? true;
+        const showInactive = showInactiveCb?.checked ?? true;
 
-        function clearFieldError(inputEl) {
-            if (!inputEl) return;
-            inputEl.classList.remove('border-red-500', 'focus:ring-red-500', 'focus:border-red-500');
-            const next = inputEl.nextElementSibling;
-            if (next && next.classList.contains('field-error')) next.remove();
-        }
+        return ALL_USERS.filter(u => {
+            // --- status (active vs inactive) ---
+            const isInactive = !!u.isDeleted;
+            const isActive   = !isInactive;
 
-        // --- Helpers for New User Modal ---
-        const getNewUserInputs = () => ({
-            firstName: document.getElementById('newFirstName'),
-            middleName: document.getElementById('newMiddleName'),
-            lastName: document.getElementById('newLastName'),
-            email: document.getElementById('newEmail'),
-            contact: document.getElementById('newContact'),
-            rfid: document.getElementById('newRfid'),
-            password: document.getElementById('newPassword'),
-            passwordConfirm: document.getElementById('newPasswordConfirm')
-        });
+            if (showActive && !showInactive && !isActive)   return false;
+            if (!showActive && showInactive && !isInactive) return false;
+            if (!showActive && !showInactive)               return false;
 
-        function clearAllNewUserFieldErrors() {
-            const inputs = getNewUserInputs();
-            Object.values(inputs).forEach(clearFieldError);
-            const formError = document.getElementById('newUserFormError');
-            if (formError) formError.textContent = '';
-        }
+            // --- email filters ---
+            const hasEmail = !!u.user_email;
+            if (withEmail && !withoutEmail && !hasEmail) return false;
+            if (!withEmail && withoutEmail && hasEmail) return false;
+            if (!withEmail && !withoutEmail) return false;
 
-        // --- Helpers for Edit User Modal ---
-        const getEditUserInputs = () => ({
-            firstName: document.getElementById('editFirstName'),
-            middleName: document.getElementById('editMiddleName'),
-            lastName: document.getElementById('editLastName'),
-            email: document.getElementById('editEmail'),
-            contact: document.getElementById('editContact'),
-            rfid: document.getElementById('editRfid'),
-            password: document.getElementById('editPassword'),
-            passwordConfirm: document.getElementById('editPasswordConfirm')
-        });
-
-        function clearAllEditUserFieldErrors() {
-            const inputs = getEditUserInputs();
-            Object.values(inputs).forEach(clearFieldError);
-            const formError = document.getElementById('editUserFormError');
-            if (formError) formError.textContent = '';
-        }
-
-        function findDuplicatesInAllUsers({ email, rfId }, currentUserId = null) {
-            const result = { email: false, rfId: false };
-            const normEmail = (v) => String(v ?? '').trim().toLowerCase();
-            const normRf = (v) => String(v ?? '').trim();
-            if (email) {
-                const e = normEmail(email);
-                result.email = Array.isArray(allUsers) && allUsers.some(u => normEmail(u.email) === e && u.userId !== currentUserId);
-            }
-            if (rfId) {
-                const r = normRf(rfId);
-                result.rfId = Array.isArray(allUsers) && allUsers.some(u => normRf(u.rfId ?? u.rfid ?? u.rf_id) === r && u.userId !== currentUserId);
-            }
-            return result;
-        }
-
-        const renderTable = () => {
-            const filteredUsers = allUsers.filter(user => {
-                const norm = (v) => (v == null ? '' : String(v)).toLowerCase();
-                const hasEmail = !!(user.email && String(user.email).trim() !== '');
-                const emailMatch = (showWithEmail && showWithoutEmail)
-                    ? true
-                    : (showWithEmail
-                        ? hasEmail
-                        : (showWithoutEmail ? !hasEmail : false));
-                const searchMatch = (searchTerm === '') ? true : (
-                    norm(user.fullName).includes(searchTerm) ||
-                    norm(user.email).includes(searchTerm) ||
-                    norm(user.departmentName).includes(searchTerm)
+            // --- search ---
+            if (search) {
+                const name = `${u.user_fname || ''} ${u.user_mname || ''} ${u.user_lname || ''}`.toLowerCase();
+                const dep  = (u.user_department || '').toString();
+                return (
+                    name.includes(search) ||
+                    (u.user_email || '').toLowerCase().includes(search) ||
+                    dep.includes(search)
                 );
-                return searchMatch && emailMatch;
-            });
-
-            const totalResults = filteredUsers.length;
-            const totalPages = Math.ceil(totalResults / pageSize) || 1;
-            const start = (currentPage - 1) * pageSize;
-            const end = start + pageSize;
-            const paginatedUsers = filteredUsers.slice(start, end);
-
-            usersTbody.innerHTML = '';
-            if (paginatedUsers.length === 0) {
-                usersTbody.innerHTML = `<tr><td colspan="4" class="text-center text-slate-500 py-4">No users found.</td></tr>`;
-            } else {
-                paginatedUsers.forEach((user, index) => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${start + index + 1}</td>
-                        <td class="fullname-cell cursor-pointer text-blue-600 hover:underline">${user.fullName || 'N/A'}</td>
-                        <td>${user.email || 'N/A'}</td>
-                        <td>${user.departmentName || 'N/A'}</td>
-                    `;
-                    const fullnameCell = row.querySelector('.fullname-cell');
-                    if (fullnameCell) {
-                        fullnameCell.addEventListener('click', () => openEditModal(user));
-                    }
-                    usersTbody.appendChild(row);
-                });
             }
+            return true;
+        });
+    }
 
+    function renderUsers() {
+        const filtered = filterUsers();
+        const total = filtered.length;
+        const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const end = Math.min(start + PAGE_SIZE, total);
+        const pageItems = filtered.slice(start, end);
+
+        usersTbody.innerHTML = pageItems.map(u => `
+      <tr>
+        <td class="fullname-cell" data-user-id="${u.user_id}">
+          <div class="font-semibold">
+            ${u.user_fname || ''} ${u.user_lname || ''}
+            ${u.isDeleted ? '<span class="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700">Inactive</span>' : ''}
+          </div>
+          <div class="text-sm text-slate-500">${u.user_email || 'No email'}</div>
+          <div class="text-xs text-slate-400">${[u.user_brgy, u.user_city, u.user_province].filter(Boolean).join(' • ') || ''}</div>
+        </td>
+        <td class="text-sm">${u.user_department || 'N/A'}</td>
+        <td class="text-sm">
+          ${u.user_position || 'N/A'}
+          <a class="ml-2 text-blue-600 hover:underline" href="view_id.html?id=${encodeURIComponent(u.user_id)}" target="_blank">View ID</a>
+        </td>
+      </tr>
+    `).join('');
+
+        if (total === 0) {
+            resultInfo.textContent = 'No users found';
+            pageIndicator.textContent = '0 / 0';
+            prevBtn.disabled = true;
+            nextBtn.disabled = true;
+        } else {
+            resultInfo.textContent = `Showing ${start + 1}-${end} of ${total} users`;
             pageIndicator.textContent = `${currentPage} / ${totalPages}`;
-            resultInfo.textContent = `Showing ${start + 1} to ${start + paginatedUsers.length} of ${totalResults} results.`;
-            prevBtn.disabled = currentPage === 1;
-            nextBtn.disabled = currentPage === totalPages;
-        };
-
-        const populateDepartmentsDropdown = async (selectElement) => {
-            try {
-                const response = await fetch(DEPARTMENTS_API_URL);
-                if (!response.ok) throw new Error('Could not fetch departments.');
-                const responseData = await response.json();
-                let departments = [];
-                if (Array.isArray(responseData)) departments = responseData;
-                else if (responseData && Array.isArray(responseData.data)) departments = responseData.data;
-                else if (responseData && Array.isArray(responseData.content)) departments = responseData.content;
-                else throw new Error('Department data is not in a recognizable format.');
-                selectElement.innerHTML = '<option value="">Select a Department</option>';
-                departments.forEach(dept => {
-                    const option = document.createElement('option');
-                    const deptName = dept.departmentName || dept.name || '';
-                    const normalizedId = (dept.departmentId ?? dept.id ?? dept.department_id ?? dept.dept_id);
-                    if (normalizedId != null && normalizedId !== '') {
-                        option.value = String(normalizedId);
-                        option.dataset.deptId = String(normalizedId);
-                    } else {
-                        option.value = '';
-                        option.dataset.deptId = '';
-                    }
-                    option.textContent = deptName;
-                    selectElement.appendChild(option);
-                });
-            } catch (error) {
-                console.error("Failed to populate departments:", error);
-                selectElement.innerHTML = '<option value="">Error loading departments</option>';
-            }
-        };
-
-        const setupModalTabs = (modalElement) => {
-            const mainTabs = modalElement.querySelectorAll('.main-tab-button');
-            const mainContents = modalElement.querySelectorAll('.main-tab-content');
-            const subTabs = modalElement.querySelectorAll('.sub-tab-button');
-            const subContents = modalElement.querySelectorAll('.sub-tab-content');
-
-            mainTabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    mainTabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    const target = modalElement.querySelector(tab.dataset.tabTarget);
-                    mainContents.forEach(c => c.classList.add('hidden'));
-                    if(target) target.classList.remove('hidden');
-                });
-            });
-
-            subTabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    subTabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    const target = modalElement.querySelector(tab.dataset.subtabTarget);
-                    subContents.forEach(c => c.classList.add('hidden'));
-                    if(target) target.classList.remove('hidden');
-                });
-            });
-        };
-
-        setupModalTabs(editUserModal);
-
-        // Fetch full user info via our own backend proxy to avoid CORS issues
-        const fetchDirectusUserDetail = async (id) => {
-            if (id == null) return null;
-            try {
-                const url = `${API_BASE}/items/user/${encodeURIComponent(id)}/details`;
-                const r = await fetch(url, { method: 'GET' });
-                if (!r.ok) {
-                    console.warn(`[SPA] Failed to fetch details for user ${id}, status: ${r.status}`);
-                    return null;
-                }
-                return await r.json().catch(() => null);
-            } catch (e) {
-                console.error('[SPA] Error fetching user details via proxy:', e);
-                return null;
-            }
-        };
-
-        // Normalize diverse field names from Directus into the ones used by the modal
-        const normalizeUserDetail = (u) => {
-            if (!u || typeof u !== 'object') return {};
-            const pick = (...keys) => {
-                for (const k of keys) {
-                    if (u[k] != null && u[k] !== '') return u[k];
-                }
-                return undefined;
-            };
-            // Names
-            const firstName = pick('firstName','first_name','fname','user_fname','given_name');
-            const middleName = pick('middleName','middle_name','mname','user_mname');
-            const lastName = pick('lastName','last_name','lname','user_lname','surname','family_name');
-            const fullName = pick('fullName','full_name','name', undefined);
-            const email = pick('email','user_email','username');
-            const mobileNumber = pick('mobileNumber','mobile_number','contact','user_contact','userContact','phone');
-            const rfId = pick('rfId','rfid','rf_id');
-            const position = pick('position','user_position','job_title','title');
-            const departmentId = pick('departmentId','department_id','dept_id', 'user_department');
-            let departmentName = pick('departmentName','department_name','dept_name');
-            const department = pick('department','userDepartment');
-            if (!departmentName && department && typeof department === 'object') {
-                departmentName = department.name || department.departmentName || department.department_name || department.dept_name;
-            }
-            if (!departmentId && department && typeof department === 'object') {
-                const idCandidate = department.id ?? department.departmentId ?? department.department_id ?? department.dept_id;
-                if (idCandidate != null) {
-                    const n = parseInt(idCandidate, 10);
-                    if (!Number.isNaN(n)) {
-                        u.departmentId = n;
-                    }
-                }
-            }
-            const province = pick('province','user_province','address_province');
-            const city = pick('city','user_city','address_city','municipality');
-            const barangay = pick('barangay','user_brgy','address_barangay');
-            const birthday = pick('birthday','user_bday','birthdate','dob');
-            const dateOfHire = pick('dateOfHire','user_dateOfHire','date_hired','hired_date');
-            const tin = pick('tin','tinNumber','tin_no','user_tin');
-            const sss = pick('sss','sssNumber','sss_no','user_sss');
-            const philhealth = pick('philhealth','philHealth','philhealthNumber','philhealth_no','user_philhealth');
-            const isActive = pick('isActive','active','status');
-            const image = pick('image','image_url','img');
-            const externalId = pick('externalId','external_id');
-            const roleId = pick('roleId','role_id');
-            const tags = pick('tags');
-            const branchId = pick('branchId','branch_id');
-            const branchName = pick('branchName','branch_name');
-            const operationId = pick('operationId','operation_id');
-            return {
-                firstName, middleName, lastName, fullName, email, mobileNumber, rfId,
-                position, departmentId, departmentName,
-                province, city, barangay,
-                birthday, dateOfHire, tin, sss, philhealth, isActive,
-                image, externalId, roleId, tags, branchId, branchName, operationId
-            };
-        };
-
-        const openEditModal = async (user) => {
-            editUserForm.reset();
-            clearAllEditUserFieldErrors();
-            editUserFormError.textContent = '';
-
-            // --- Try to fetch full user details from Directus and merge with the row user ---
-            const userId = user.userId ?? user.id ?? user.user_id ?? null;
-            let merged = { ...user };
-            try {
-                const detailRaw = await fetchDirectusUserDetail(userId);
-                const detailNorm = normalizeUserDetail(detailRaw);
-                merged = { ...merged, ...detailNorm };
-            } catch (e) {
-                console.warn('Could not load extra user details from Directus:', e);
-            }
-
-            // --- Populate Basic Info ---
-            const hiddenIdInput = document.getElementById('editUserId');
-            if (hiddenIdInput) hiddenIdInput.value = userId ?? '';
-
-            // Prefer split names from details; otherwise split from fullName
-            const names = (merged.firstName || merged.middleName || merged.lastName) ? null : (merged.fullName || '').split(' ');
-            const firstName = merged.firstName || (names ? (names[0] || '') : '');
-            const lastName = merged.lastName || (names ? (names.length > 1 ? names[names.length - 1] : '') : '');
-            const middleName = merged.middleName || (names ? (names.length > 2 ? names.slice(1, -1).join(' ') : '') : '');
-
-            document.getElementById('editFirstName').value = firstName || '';
-            document.getElementById('editMiddleName').value = middleName || '';
-            document.getElementById('editLastName').value = lastName || '';
-
-            document.getElementById('editEmail').value = merged.email || '';
-            document.getElementById('editContact').value = merged.mobileNumber || '';
-            document.getElementById('editPosition').value = merged.position || '';
-            document.getElementById('editRfid').value = (merged.rfId ?? merged.rfid ?? '') || '';
-            document.getElementById('editIsActive').checked = !!(merged.isActive === true || merged.isActive === 1 || String(merged.isActive).toLowerCase() === 'true');
-
-            // --- Populate HR Info ---
-            document.getElementById('editBirthday').value = toYMD(merged.birthday);
-            document.getElementById('editDateHired').value = toYMD(merged.dateOfHire);
-            document.getElementById('editTin').value = merged.tin || '';
-            document.getElementById('editSss').value = merged.sss || '';
-            document.getElementById('editPhilhealth').value = merged.philhealth || '';
-            // --- Populate Additional Fields to mirror /api/users structure ---
-            const editImageEl = document.getElementById('editImage'); if (editImageEl) editImageEl.value = merged.image || '';
-            const editExternalIdEl = document.getElementById('editExternalId'); if (editExternalIdEl) editExternalIdEl.value = merged.externalId || '';
-            const editRoleIdEl = document.getElementById('editRoleId'); if (editRoleIdEl) editRoleIdEl.value = (merged.roleId ?? '');
-            const editTagsEl = document.getElementById('editTags'); if (editTagsEl) editTagsEl.value = (merged.tags ?? '');
-            const editBranchIdEl = document.getElementById('editBranchId'); if (editBranchIdEl) editBranchIdEl.value = (merged.branchId ?? '');
-            const editBranchNameEl = document.getElementById('editBranchName'); if (editBranchNameEl) editBranchNameEl.value = (merged.branchName ?? '');
-            const editOperationIdEl = document.getElementById('editOperationId'); if (editOperationIdEl) editOperationIdEl.value = (merged.operationId ?? '');
-
-            // --- Populate Department Dropdown ---
-            const departmentDropdown = document.getElementById('editDepartmentName');
-            populateDepartmentsDropdown(departmentDropdown).then(() => {
-                const targetDeptId = merged.departmentId ?? merged.department_id;
-
-                if (targetDeptId != null) {
-                    const optionExists = Array.from(departmentDropdown.options).some(opt => opt.value === String(targetDeptId));
-                    if (optionExists) {
-                        departmentDropdown.value = String(targetDeptId);
-                        return; // Exit if ID match is successful
-                    } else {
-                        console.warn(`Department ID "${targetDeptId}" from user data not found in the department list. Falling back to name match.`);
-                    }
-                }
-
-                // Fallback: If ID match fails or ID is null, try matching by name
-                const targetDeptName = (merged.departmentName || merged.department || '').trim();
-                if (targetDeptName) {
-                    const matchingOption = Array.from(departmentDropdown.options).find(opt => (opt.textContent || '').trim().toLowerCase() === targetDeptName.toLowerCase());
-                    if (matchingOption) {
-                        departmentDropdown.value = matchingOption.value;
-                    }
-                }
-            });
-
-            // --- Initialize Address Dropdowns for Edit Modal ---
-            initializeAddressDropdownsForEdit({
-                province: merged.province || null,
-                city: merged.city || null,
-                barangay: merged.barangay || null
-            });
-
-            // --- Show Modal ---
-            editUserModal.querySelector('.main-tab-button').click();
-            editUserModal.classList.remove('hidden');
-        };
-
-        const toYMD = (val) => {
-            if (val == null) return null;
-            const s = String(val).trim();
-            if (!s) return null;
-            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-            const d = new Date(s);
-            if (isNaN(d.getTime())) return s;
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            return `${yyyy}-${mm}-${dd}`;
-        };
-
-        searchBox.addEventListener('input', (e) => {
-            searchTerm = e.target.value.toLowerCase();
-            currentPage = 1;
-            renderTable();
-        });
-
-        pageSizeSelect.addEventListener('change', (e) => {
-            pageSize = parseInt(e.target.value, 10);
-            currentPage = 1;
-            renderTable();
-        });
-
-        withEmailCheckbox.addEventListener('change', () => {
-            showWithEmail = withEmailCheckbox.checked;
-            currentPage = 1;
-            renderTable();
-        });
-
-        withoutEmailCheckbox.addEventListener('change', () => {
-            showWithoutEmail = withoutEmailCheckbox.checked;
-            currentPage = 1;
-            renderTable();
-        });
-
-        prevBtn.addEventListener('click', () => {
-            if (currentPage > 1) {
-                currentPage--;
-                renderTable();
-            }
-        });
-
-        nextBtn.addEventListener('click', () => {
-            const totalPages = Math.ceil(allUsers.length / pageSize);
-            if (currentPage < totalPages) {
-                currentPage++;
-                renderTable();
-            }
-        });
-
-        logoutBtn.addEventListener('click', async () => {
-            try {
-                await fetch(`${API_BASE}/api/logout`, { method: 'POST', credentials: 'include' });
-            } catch (_) { /* ignore network errors for logout */ }
-            sessionStorage.removeItem('isLoggedIn');
-            window.location.href = 'index.html';
-        });
-
-        if (newUserBtn && newUserForm && newUserModal) {
-            newUserBtn.addEventListener('click', () => {
-                newUserForm.reset();
-                clearAllNewUserFieldErrors();
-                if (newUserFormError) newUserFormError.textContent = '';
-                const provinceEl = document.getElementById('newProvince');
-                if (provinceEl) provinceEl.dispatchEvent(new Event('change'));
-                const deptEl = document.getElementById('newDepartmentName');
-                if (deptEl) populateDepartmentsDropdown(deptEl);
-                newUserModal.classList.remove('hidden');
-            });
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = currentPage >= totalPages;
         }
 
-        if (cancelNewUserBtn && newUserModal) {
-            cancelNewUserBtn.addEventListener('click', () => newUserModal.classList.add('hidden'));
-        }
-
-        if (newUserForm) {
-            newUserForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                newUserFormError.textContent = '';
-                clearAllNewUserFieldErrors();
-
-                const passwordInput = document.getElementById('newPassword');
-                const confirmInput = document.getElementById('newPasswordConfirm');
-                const password = (passwordInput && passwordInput.value) ? passwordInput.value : '';
-                const confirmPassword = (confirmInput && confirmInput.value) ? confirmInput.value : '';
-
-                if (!password || !confirmPassword) {
-                    markFieldError(passwordInput, 'Password is required.');
-                    markFieldError(confirmInput, 'Password confirmation is required.');
-                    newUserFormError.textContent = 'Please enter and confirm the password.';
-                    return;
-                }
-                if (password !== confirmPassword) {
-                    markFieldError(confirmInput, 'Passwords do not match.');
-                    newUserFormError.textContent = 'Password and Confirm Password do not match.';
-                    return;
-                }
-
-                const firstName = document.getElementById('newFirstName')?.value?.trim() || '';
-                const middleName = document.getElementById('newMiddleName')?.value?.trim() || '';
-                const lastName = document.getElementById('newLastName')?.value?.trim() || '';
-                const email = document.getElementById('newEmail')?.value?.trim() || '';
-                const position = document.getElementById('newPosition')?.value?.trim() || '';
-                const mobileNumber = document.getElementById('newContact')?.value?.trim() || '';
-                const rfId = document.getElementById('newRfid')?.value?.trim() || '';
-                const fullName = [firstName, middleName, lastName].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-
-                const deptSelect = document.getElementById('newDepartmentName');
-                const selectedDeptOption = deptSelect?.selectedOptions?.[0] || null;
-                let departmentId = null;
-                if (selectedDeptOption && selectedDeptOption.value) {
-                    const parsedId = parseInt(selectedDeptOption.value, 10);
-                    if (!isNaN(parsedId)) {
-                        departmentId = parsedId;
-                    }
-                }
-
-                const departmentName = (departmentId && selectedDeptOption) ? (selectedDeptOption.textContent || '').trim() : null;
-
-                const province = document.getElementById('newProvince')?.selectedOptions?.[0]?.textContent.trim() || null;
-                const city = document.getElementById('newCity')?.selectedOptions?.[0]?.textContent.trim() || null;
-                const barangay = document.getElementById('newBarangay')?.selectedOptions?.[0]?.textContent.trim() || null;
-                const birthday = toYMD(document.getElementById('newBirthday')?.value?.trim() || null);
-                const dateOfHire = toYMD(document.getElementById('newDateHired')?.value?.trim() || null);
-
-                const tin = document.getElementById('newTin')?.value?.trim() || '';
-                const sss = document.getElementById('newSss')?.value?.trim() || '';
-                const philhealth = document.getElementById('newPhilhealth')?.value?.trim() || '';
-                const isActiveNew = document.getElementById('newIsActive') ? document.getElementById('newIsActive').checked : true;
-
-                if (departmentId == null) {
-                    markFieldError(deptSelect, 'Please select a department.');
-                    newUserFormError.textContent = 'A department must be selected.';
-                    return;
-                }
-
-                const payload = {
-                    fullName, email, password, position, mobileNumber, rfId,
-                    departmentId, departmentName, province, city, barangay,
-                    birthday, dateOfHire, tin, sss, philhealth,
-                    isActive: !!isActiveNew,
-                };
-
-                if (usersLoaded) {
-                    const dup = findDuplicatesInAllUsers({ email, rfId });
-                    if (dup.email || dup.rfId) {
-                        const inputs = getNewUserInputs();
-                        const parts = [];
-                        if (dup.email && email) {
-                            markFieldError(inputs.email, 'Email already exists.');
-                            parts.push('email');
-                        }
-                        if (dup.rfId && rfId) {
-                            markFieldError(inputs.rfid, 'RFID already exists.');
-                            parts.push('RFID');
-                        }
-                        if (parts.length > 0) {
-                            newUserFormError.textContent = `Duplicate ${parts.join(' and ')}. Please use a unique value.`;
-                            return;
-                        }
-                    }
-                }
-
-                try {
-                    const resp = await fetch(USERS_API_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const data = await resp.json().catch(() => ({}));
-                    if (!resp.ok) {
-                        if (resp.status === 409) {
-                            const msg = data?.message || 'A user with this email or RFID already exists.';
-                            markFieldError(getNewUserInputs().email);
-                            markFieldError(getNewUserInputs().rfid);
-                            newUserFormError.textContent = `Failed to register: ${msg}`;
-                            return;
-                        }
-                        throw new Error(data?.message || `Request failed with status ${resp.status}`);
-                    }
-                    newUserModal.classList.add('hidden');
-                    await initializeUserTable();
-                } catch (err) {
-                    console.error('Create user failed:', err);
-                    newUserFormError.textContent = `Failed to register user: ${err?.message || err}`;
-                }
+        $all('#usersTbody .fullname-cell').forEach(cell => {
+            cell.addEventListener('click', () => {
+                const user = ALL_USERS.find(u => u.user_id == cell.dataset.userId);
+                if (user) showEditUserModal(user);
             });
+        });
+    }
+
+    /* ---------- Modal helpers ---------- */
+    const backdrop = document.createElement('div');
+    backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 z-40 hidden';
+    document.body.appendChild(backdrop);
+
+    function showModal(modal) { modal.classList.remove('hidden'); backdrop.classList.remove('hidden'); }
+    function closeModal(modal){ modal.classList.add('hidden'); backdrop.classList.add('hidden'); }
+    backdrop.addEventListener('click', () => {
+        if (!newUserModal.classList.contains('hidden')) closeModal(newUserModal);
+        if (!editUserModal.classList.contains('hidden')) closeModal(editUserModal);
+    });
+
+    newUserBtn?.addEventListener('click', () => showModal(newUserModal));
+    cancelNewUserBtn?.addEventListener('click', () => closeModal(newUserModal));
+    cancelEditUserBtn?.addEventListener('click', () => closeModal(editUserModal));
+    logoutBtn?.addEventListener('click', async () => {
+        try { await api('/logout', { method: 'POST' }); } catch {}
+        window.location.href = 'index.html';
+    });
+
+    /* ---------- Create User ---------- */
+    newUserForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        newErr.textContent = '';
+        const fd = new FormData(newUserForm);
+
+        const pCode = fd.get('province') || '';
+        const cCode = fd.get('city') || '';
+        const bCode = fd.get('barangay') || '';
+
+        const pName = pCode ? ($('#newProvince option:checked')?.textContent || null) : null;
+        const cName = cCode ? ($('#newCity option:checked')?.textContent || null) : null;
+        const bName = bCode ? ($('#newBarangay option:checked')?.textContent || null) : null;
+
+        let userImageUrl = await uploadFile('newUserImage', '/uploads/users');
+        let signatureUrl = await uploadFile('newSignatureFile', '/uploads/signatures');
+
+        if (!signatureUrl && newSigPad?.hasInk()) {
+            try {
+                const r = await api('/signatures', { method:'POST', body: JSON.stringify({ dataUrl: newSigPad.toDataURL() }) });
+                signatureUrl = r.url || null;
+            } catch {}
         }
 
-        cancelEditUserBtn.addEventListener('click', () => editUserModal.classList.add('hidden'));
+        const body = {
+            user_fname: fd.get('firstName') || null,
+            user_mname: fd.get('middleName') || null,
+            user_lname: fd.get('lastName') || null,
+            user_contact: fd.get('contact') || null,
+            user_bday: fd.get('birthday') || null,
+            user_province: pName, user_city: cName, user_brgy: bName,
+            user_department: parseInt(fd.get('department'), 10) || null,
+            user_position: fd.get('designation') || null,
+            user_email: fd.get('email') || null,
+            user_password: fd.get('password') || null,
+            user_tin: fd.get('tin') || null,
+            user_sss: fd.get('sss') || null,
+            user_philhealth: fd.get('philhealth') || null,
+            user_pagibig: fd.get('pagibig') || null,
+            user_dateOfHire: fd.get('dateOfHire') || null,
+            rf_id: fd.get('rf_id') || null,
+            isAdmin: !!fd.get('isAdmin'),
+            emergency_contact_name: fd.get('emergency_contact_name') || null,
+            emergency_contact_number: fd.get('emergency_contact_number') || null,
+            ...(userImageUrl ? { user_image: userImageUrl } : {}),
+            ...(signatureUrl ? { signature: signatureUrl } : {}),
+        };
 
-        editUserForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            editUserFormError.textContent = '';
-            clearAllEditUserFieldErrors();
+        try {
+            await api('/items/user', { method:'POST', body: JSON.stringify(body) });
+            const sf = getEl('newSignatureFile'); if (sf) sf.value = '';
+            const sp = getEl('newSignaturePreview'); if (sp) { sp.src = ''; sp.classList.add('hidden'); }
+            if (newSigPad) newSigPad.clear();
+            const uf = getEl('newUserImage'); if (uf) uf.value = '';
+            const up = getEl('newUserImagePreview'); if (up) { up.src = ''; up.classList.add('hidden'); }
+            newUserForm.reset();
+            closeModal(newUserModal);
+            await loadUsers();
+        } catch (err) {
+            newErr.textContent = `Creation failed: ${err.message}`;
+        }
+    });
 
-            const passwordInput = document.getElementById('editPassword');
-            const confirmInput = document.getElementById('editPasswordConfirm');
-            const password = passwordInput.value;
-            const confirmPassword = confirmInput.value;
+    /* ---------- Edit User ---------- */
+    function showEditUserModal(user) {
+        setVal('editFirstName', user.user_fname || '');
+        setVal('editMiddleName', user.user_mname || '');
+        setVal('editLastName', user.user_lname || '');
+        setVal('editContact', user.user_contact || '');
+        setVal('editBirthday', user.user_bday ? String(user.user_bday).split(' ')[0] : '');
 
-            if (password || confirmPassword) {
-                if (password !== confirmPassword) {
-                    editUserFormError.textContent = 'New Password and Confirm Password do not match.';
-                    markFieldError(passwordInput, 'Passwords do not match.');
-                    markFieldError(confirmInput, 'Passwords do not match.');
-                    confirmInput.focus();
-                    return;
+        const pSel = getEl('editProvince');
+        const cSel = getEl('editCity');
+        const bSel = getEl('editBarangay');
+
+        if (pSel) {
+            const pTxt = (user.user_province || '').trim().toLowerCase();
+            let pVal = '';
+            if (pTxt) {
+                const idx = Array.from(pSel.options).findIndex(o => (o.textContent || '').trim().toLowerCase() === pTxt);
+                if (idx >= 0) pVal = pSel.options[idx].value;
+            }
+            pSel.value = pVal || '';
+            populateCities('edit', pSel.value);
+
+            if (cSel) {
+                const cTxt = (user.user_city || '').trim().toLowerCase();
+                let cVal = '';
+                if (cTxt) {
+                    const idx = Array.from(cSel.options).findIndex(o => (o.textContent || '').trim().toLowerCase() === cTxt);
+                    if (idx >= 0) cVal = cSel.options[idx].value;
+                }
+                cSel.value = cVal || '';
+                populateBarangays('edit', cSel.value);
+
+                if (bSel) {
+                    const bTxt = (user.user_brgy || '').trim().toLowerCase();
+                    let bVal = '';
+                    if (bTxt) {
+                        const idx = Array.from(bSel.options).findIndex(o => (o.textContent || '').trim().toLowerCase() === bTxt);
+                        if (idx >= 0) bVal = bSel.options[idx].value;
+                    }
+                    bSel.value = bVal || '';
                 }
             }
+        }
 
-            const userId = document.getElementById('editUserId').value;
-            if (!userId) {
-                editUserFormError.textContent = 'Cannot update user: User ID is missing.';
-                return;
-            }
+        setSelect('editDepartmentName', user.user_department || '');
+        setVal('editDesignation', user.user_position || '');
+        setVal('editEmail', user.user_email || '');
+        const pw = getEl('editPassword'); if (pw) pw.value = '';
+        setVal('editDateOfHire', user.user_dateOfHire ? String(user.user_dateOfHire).split(' ')[0] : '');
+        setVal('editRfId', user.rf_id || '');
+        setVal('editTin', user.user_tin || '');
+        setVal('editSSS', user.user_sss || '');
+        setVal('editPhilhealth', user.user_philhealth || '');
+        setVal('editPagibig', user.user_pagibig || '');
+        setChecked('editIsAdmin', !!user.isAdmin);
 
-            const firstName = document.getElementById('editFirstName')?.value?.trim() || '';
-            const middleName = document.getElementById('editMiddleName')?.value?.trim() || '';
-            const lastName = document.getElementById('editLastName')?.value?.trim() || '';
-            const email = document.getElementById('editEmail')?.value?.trim() || '';
-            const position = document.getElementById('editPosition')?.value?.trim() || '';
-            const mobileNumber = document.getElementById('editContact')?.value?.trim() || '';
-            const rfId = document.getElementById('editRfid')?.value?.trim() || '';
-            const fullName = [firstName, middleName, lastName].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+        // FIX: now always present (backend guarantees), but default-safe anyway
+        setChecked('editIsDelete', !!user.isDeleted);
 
-            const deptSelect = document.getElementById('editDepartmentName');
-            const selectedEditDeptOption = deptSelect?.selectedOptions?.[0] || null;
-            let departmentId = null;
-            if (selectedEditDeptOption && selectedEditDeptOption.value) {
-                const parsedId = parseInt(selectedEditDeptOption.value, 10);
-                if (!isNaN(parsedId)) {
-                    departmentId = parsedId;
-                }
-            }
-            const departmentName = (departmentId && selectedEditDeptOption) ? (selectedEditDeptOption.textContent || '').trim() : null;
+        setVal('editEmergencyName', user.emergency_contact_name || '');
+        setVal('editEmergencyPhone', user.emergency_contact_number || '');
 
-            const province = document.getElementById('editProvince')?.selectedOptions?.[0]?.textContent.trim() || null;
-            const city = document.getElementById('editCity')?.selectedOptions?.[0]?.textContent.trim() || null;
-            const barangay = document.getElementById('editBarangay')?.selectedOptions?.[0]?.textContent.trim() || null;
+        const imgPrev = getEl('editUserImagePreview');
+        const normalizedImg = normalizeMediaUrl(user.user_image);
+        if (imgPrev) {
+            if (normalizedImg) { imgPrev.src = normalizedImg; imgPrev.classList.remove('hidden'); }
+            else { imgPrev.src = ''; imgPrev.classList.add('hidden'); }
+        }
+        const sigPrev = getEl('editSignaturePreview');
+        const normalizedSig = normalizeMediaUrl(user.signature);
+        if (sigPrev) {
+            if (normalizedSig) { sigPrev.src = normalizedSig; sigPrev.classList.remove('hidden'); }
+            else { sigPrev.src = ''; sigPrev.classList.add('hidden'); }
+        }
+        if (editSigPad) editSigPad.clear();
 
-            const birthday = toYMD(document.getElementById('editBirthday')?.value?.trim() || null);
-            const dateOfHire = toYMD(document.getElementById('editDateHired')?.value?.trim() || null);
+        if (editUserForm) editUserForm.dataset.userId = user.user_id;
+        showModal(editUserModal);
+    }
 
-            const tin = document.getElementById('editTin')?.value?.trim() || '';
-            const sss = document.getElementById('editSss')?.value?.trim() || '';
-            const philhealth = document.getElementById('editPhilhealth')?.value?.trim() || '';
-            const isActive = document.getElementById('editIsActive').checked;
-            // Additional fields to mirror /api/users
-            const image = document.getElementById('editImage')?.value?.trim() || '';
-            const externalId = document.getElementById('editExternalId')?.value?.trim() || '';
-            const roleIdRaw = document.getElementById('editRoleId')?.value?.trim() || '';
-            const tags = document.getElementById('editTags')?.value?.trim() || '';
-            const branchIdRaw = document.getElementById('editBranchId')?.value?.trim() || '';
-            const branchName = document.getElementById('editBranchName')?.value?.trim() || '';
-            const operationIdRaw = document.getElementById('editOperationId')?.value?.trim() || '';
-            const toNumOrNullEdit = (v) => { const n = parseInt(v, 10); return Number.isNaN(n) ? null : n; };
-            const roleId = toNumOrNullEdit(roleIdRaw);
-            const branchId = toNumOrNullEdit(branchIdRaw);
-            const operationId = toNumOrNullEdit(operationIdRaw);
+    const nonEmpty = (v) => (v !== undefined && v !== null && String(v).trim() !== '');
 
-            if (departmentId == null) {
-                markFieldError(deptSelect, 'Please select a department.');
-                editUserFormError.textContent = 'A department must be selected.';
-                return;
-            }
+    editUserForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const userId = editUserForm?.dataset?.userId;
+        if (!userId) return;
 
-            if (usersLoaded) {
-                const dup = findDuplicatesInAllUsers({ email, rfId }, parseInt(userId, 10));
-                if (dup.email || dup.rfId) {
-                    const inputs = getEditUserInputs();
-                    const parts = [];
-                    if (dup.email && email) {
-                        markFieldError(inputs.email, 'Email is already used by another user.');
-                        parts.push('email');
-                    }
-                    if (dup.rfId && rfId) {
-                        markFieldError(inputs.rfid, 'RFID is already used by another user.');
-                        parts.push('RFID');
-                    }
-                    if (parts.length > 0) {
-                        editUserFormError.textContent = `The updated ${parts.join(' and ')} is already in use.`;
-                        return;
-                    }
-                }
-            }
+        const fd = new FormData(editUserForm);
+        const pCode = fd.get('province') || '';
+        const cCode = fd.get('city') || '';
+        const bCode = fd.get('barangay') || '';
 
-            const payload = {
-                fullName, email, position, mobileNumber, rfId,
-                departmentId, departmentName, province, city, barangay,
-                birthday, dateOfHire, tin, sss, philhealth, isActive,
-                image: image || null, externalId: externalId || null,
-                roleId: roleId ?? null, tags: tags || null,
-                branchId: branchId ?? null, branchName: branchName || null,
-                operationId: operationId ?? null
-            };
+        let newImageUrl = await uploadFile('editUserImage', '/uploads/users');
+        let newSignatureUrl = await uploadFile('editSignatureFile', '/uploads/signatures');
 
-            if (password) {
-                payload.password = password;
-            }
-
+        if (!newSignatureUrl && editSigPad?.hasInk()) {
             try {
-                const UPDATE_API_URL = `${USERS_API_URL}/${userId}`;
-                const resp = await fetch(UPDATE_API_URL, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await resp.json().catch(() => ({}));
-                if (!resp.ok) {
-                    if (resp.status === 403) {
-                        const msg = data?.message || 'Forbidden: You do not have permission to update this user.';
-                        editUserFormError.textContent = msg;
-                        return;
-                    }
-                    throw new Error(data?.message || `Failed to update user (status ${resp.status})`);
-                }
-                editUserModal.classList.add('hidden');
-                await initializeUserTable();
-            } catch (err) {
-                console.error('Update user failed:', err);
-                editUserFormError.textContent = `Update failed: ${err?.message || err}`;
-            }
-        });
+                const r = await api('/signatures', { method:'POST', body: JSON.stringify({ dataUrl: editSigPad.toDataURL() }) });
+                newSignatureUrl = r.url || null;
+            } catch {}
+        }
 
-        const initializeUserTable = async () => {
-            try {
-                const response = await fetch(USERS_API_URL);
-                if (!response.ok) throw new Error("Failed to fetch users");
-                const responseData = await response.json();
-                let usersList = responseData.data || responseData.content || responseData;
-                if (!Array.isArray(usersList)) throw new Error('User data from API is not a valid array.');
-                // Normalize minimal fields expected by the table & filters
-                usersList = usersList.map(u => {
-                    const first = u.user_fname || u.firstName || u.first_name || u.fname || '';
-                    const middle = u.user_mname || u.middleName || u.middle_name || '';
-                    const last = u.user_lname || u.lastName || u.last_name || u.lname || '';
-                    const concatFirstLast = [u.user_fname, u.user_lname].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-                    const computedFull = [first, middle, last].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-                    const fullName = concatFirstLast || u.fullName || u.full_name || u.name || computedFull || '';
-                    const email = u.email || u.user_email || u.username || '';
-                    let departmentName = u.departmentName || u.department_name || u.dept_name || '';
-                    if (!departmentName && u.department && typeof u.department === 'object') {
-                        departmentName = u.department.name || u.department.departmentName || '';
-                    }
-                    const departmentId = u.departmentId ?? u.department_id ?? u.dept_id ?? (u.department && typeof u.department === 'object' ? (u.department.id ?? u.department.departmentId ?? null) : null);
-                    const userId = u.userId ?? u.id ?? u.user_id ?? u.ID ?? u._id ?? null;
-                    return { ...u, fullName, email, departmentName, departmentId, userId };
-                });
-                allUsers = usersList;
-                usersLoaded = true;
-                renderTable();
-            } catch (error) {
-                console.error("Initialization failed:", error);
-                usersLoaded = false;
-                allUsers = [];
-                usersTbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-4">Error loading user data.</td></tr>`;
-            }
-        };
+        const body = {};
+        if (nonEmpty(fd.get('firstName'))) body.user_fname = fd.get('firstName');
+        if (nonEmpty(fd.get('middleName'))) body.user_mname = fd.get('middleName');
+        if (nonEmpty(fd.get('lastName')))  body.user_lname = fd.get('lastName');
+        if (nonEmpty(fd.get('contact')))   body.user_contact = fd.get('contact');
+        if (nonEmpty(fd.get('birthday')))  body.user_bday = fd.get('birthday');
 
-        const initializeAddressDropdownsForEdit = (user = {}) => {
-            const provinceSelect = document.getElementById('editProvince');
-            const citySelect = document.getElementById('editCity');
-            const barangaySelect = document.getElementById('editBarangay');
-            if (!provinceSelect || !citySelect || !barangaySelect || !allProvinces || allProvinces.length === 0) return;
+        if (pCode) body.user_province = $('#editProvince option:checked')?.textContent || null;
+        if (cCode) body.user_city     = $('#editCity option:checked')?.textContent || null;
+        if (bCode) body.user_brgy     = $('#editBarangay option:checked')?.textContent || null;
 
-            const populateAndSelect = () => {
-                provinceSelect.innerHTML = '<option value="">Select a Province</option>';
-                allProvinces.forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p.prov_code;
-                    opt.textContent = p.prov_desc;
-                    provinceSelect.appendChild(opt);
-                });
+        const dep = fd.get('department');
+        if (nonEmpty(dep)) body.user_department = parseInt(dep, 10);
+        if (nonEmpty(fd.get('designation'))) body.user_position = fd.get('designation');
+        if (nonEmpty(fd.get('email')))       body.user_email = fd.get('email');
+        if (nonEmpty(fd.get('password')))    body.user_password = fd.get('password');
+        if (nonEmpty(fd.get('dateOfHire')))  body.user_dateOfHire = fd.get('dateOfHire');
+        if (nonEmpty(fd.get('rf_id')))       body.rf_id = fd.get('rf_id');
+        if (nonEmpty(fd.get('tin')))         body.user_tin = fd.get('tin');
+        if (nonEmpty(fd.get('sss')))         body.user_sss = fd.get('sss');
+        if (nonEmpty(fd.get('philhealth')))  body.user_philhealth = fd.get('philhealth');
+        if (nonEmpty(fd.get('pagibig')))     body.user_pagibig = fd.get('pagibig');
 
-                const userProvince = (user.province || '').trim().toLowerCase();
-                const matchingProvince = allProvinces.find(p => (p.prov_desc || '').trim().toLowerCase() === userProvince);
-                if (matchingProvince) {
-                    provinceSelect.value = matchingProvince.prov_code;
-                }
-                handleEditProvinceChange();
+        body.isAdmin = !!fd.get('isAdmin');
 
-                const userCity = (user.city || '').trim().toLowerCase();
-                const matchingCity = allCities.find(c => c.prov_code === provinceSelect.value && (c.city_desc || '').trim().toLowerCase() === userCity);
-                if (matchingCity) {
-                    citySelect.value = matchingCity.city_code;
-                }
-                handleEditCityChange();
+        // Inactive toggle → backend maps to is_deleted
+        const editInactiveChecked = getEl('editIsDelete')?.checked ?? false;
+        body.isDeleted = !!editInactiveChecked;
 
-                const userBarangay = (user.barangay || '').trim().toLowerCase();
-                const matchingBarangay = allBarangays.find(b => b.city_code === citySelect.value && (b.brgy_desc || '').trim().toLowerCase() === userBarangay);
-                if (matchingBarangay) {
-                    barangaySelect.value = matchingBarangay.brgy_code;
-                }
-            };
+        if (newImageUrl)     body.user_image = newImageUrl;
+        if (newSignatureUrl) body.signature  = newSignatureUrl;
 
-            const handleEditProvinceChange = () => {
-                const provinceCode = provinceSelect.value;
-                citySelect.innerHTML = '<option value="">Select a City / Municipality</option>';
-                barangaySelect.innerHTML = '<option value="">Select a city first</option>';
-                citySelect.disabled = !provinceCode;
-                barangaySelect.disabled = true;
-                if (!provinceCode) return;
+        try {
+            await api(`/items/user/${userId}`, { method:'PATCH', body: JSON.stringify(body) });
 
-                allCities.filter(c => c.prov_code === provinceCode).forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c.city_code;
-                    opt.textContent = c.city_desc;
-                    citySelect.appendChild(opt);
-                });
-            };
+            const sf = getEl('editSignatureFile'); if (sf) sf.value = '';
+            const sp = getEl('editSignaturePreview'); if (sp) { sp.src = ''; sp.classList.add('hidden'); }
+            if (editSigPad) editSigPad.clear();
+            const uf = getEl('editUserImage'); if (uf) uf.value = '';
+            const up = getEl('editUserImagePreview'); if (up) { up.src = ''; up.classList.add('hidden'); }
 
-            const handleEditCityChange = () => {
-                const cityCode = citySelect.value;
-                barangaySelect.innerHTML = '<option value="">Select a Barangay</option>';
-                barangaySelect.disabled = !cityCode;
-                if (!cityCode) return;
+            closeModal(editUserModal);
+            await loadUsers();
+        } catch (err) {
+            alert(`Update user failed: ${err.message}`);
+        }
+    });
 
-                allBarangays.filter(b => b.city_code === cityCode).forEach(b => {
-                    const opt = document.createElement('option');
-                    opt.value = b.brgy_code;
-                    opt.textContent = b.brgy_desc;
-                    barangaySelect.appendChild(opt);
-                });
-            };
+    /* ---------- Paging/filters ---------- */
+    prevBtn?.addEventListener('click', () => { currentPage--; renderUsers(); });
+    nextBtn?.addEventListener('click', () => { currentPage++; renderUsers(); });
+    searchBox?.addEventListener('input', () => { currentPage = 1; renderUsers(); });
+    withEmailCb?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
+    withoutEmailCb?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
+    showActiveCb?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
+    showInactiveCb?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
 
-            provinceSelect.removeEventListener('change', handleEditProvinceChange);
-            citySelect.removeEventListener('change', handleEditCityChange);
-            provinceSelect.addEventListener('change', handleEditProvinceChange);
-            citySelect.addEventListener('change', handleEditCityChange);
+    /* ---------- Boot ---------- */
+    await Promise.all([loadDepartments(), loadLgu()]);
+    await loadUsers();
+}
 
-            populateAndSelect();
-        };
-
-        const initializeAddressDropdowns = () => {
-            const provinceSelect = document.getElementById('newProvince');
-            const citySelect = document.getElementById('newCity');
-            const barangaySelect = document.getElementById('newBarangay');
-            if (!provinceSelect || !citySelect || !barangaySelect) return;
-
-            const ADDRESS_API_URLS = {
-                provinces: `${API_BASE}/api/provinces`,
-                cities: `${API_BASE}/api/cities`,
-                barangays: `${API_BASE}/api/barangays`
-            };
-
-            async function fetchAllData() {
-                try {
-                    provinceSelect.innerHTML = '<option>Loading addresses...</option>';
-                    provinceSelect.disabled = true;
-                    citySelect.disabled = true;
-                    barangaySelect.disabled = true;
-
-                    const [provRes, cityRes, bgyRes] = await Promise.all([
-                        fetch(ADDRESS_API_URLS.provinces),
-                        fetch(ADDRESS_API_URLS.cities),
-                        fetch(ADDRESS_API_URLS.barangays)
-                    ]);
-                    if (!provRes.ok || !cityRes.ok || !bgyRes.ok) {
-                        throw new Error('Failed to fetch address data from server.');
-                    }
-
-                    const [rawProvinces, rawCities, rawBarangays] = await Promise.all([
-                        provRes.json(), cityRes.json(), bgyRes.json()
-                    ]);
-
-                    allProvinces = rawProvinces.map(p => ({
-                        prov_code: p.prov_code || p.province_code,
-                        prov_desc: p.prov_desc || p.province_name,
-                    })).sort((a, b) => a.prov_desc.localeCompare(b.prov_desc));
-
-                    allCities = rawCities.map(c => ({
-                        city_code: c.city_code,
-                        city_desc: c.city_desc || c.city_name,
-                        prov_code: c.prov_code || c.province_code
-                    })).sort((a, b) => a.city_desc.localeCompare(b.city_desc));
-
-                    allBarangays = rawBarangays.map(b => ({
-                        brgy_code: b.brgy_code,
-                        brgy_desc: b.brgy_desc || b.brgy_name,
-                        city_code: b.city_code,
-                    })).sort((a, b) => a.brgy_desc.localeCompare(b.brgy_desc));
-
-                    populateProvinces();
-
-                    provinceSelect.removeEventListener('change', handleProvinceChange);
-                    citySelect.removeEventListener('change', handleCityChange);
-                    provinceSelect.addEventListener('change', handleProvinceChange);
-                    citySelect.addEventListener('change', handleCityChange);
-                } catch (err) {
-                    console.error('Address Initialization Error:', err);
-                    provinceSelect.innerHTML = `<option value="">Error loading addresses</option>`;
-                }
-            }
-
-            function populateProvinces() {
-                provinceSelect.innerHTML = '<option value="">Select a Province</option>';
-                allProvinces.forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p.prov_code;
-                    opt.textContent = p.prov_desc;
-                    provinceSelect.appendChild(opt);
-                });
-                provinceSelect.disabled = false;
-                handleProvinceChange();
-            }
-
-            function handleProvinceChange() {
-                const provinceCode = provinceSelect.value;
-                citySelect.innerHTML = '<option value="">Select a City / Municipality</option>';
-                citySelect.disabled = !provinceCode;
-                if (provinceCode) {
-                    allCities.filter(c => c.prov_code === provinceCode).forEach(c => {
-                        const opt = document.createElement('option');
-                        opt.value = c.city_code;
-                        opt.textContent = c.city_desc;
-                        citySelect.appendChild(opt);
-                    });
-                }
-                handleCityChange();
-            }
-
-            function handleCityChange() {
-                const cityCode = citySelect.value;
-                barangaySelect.innerHTML = '<option value="">Select a Barangay</option>';
-                barangaySelect.disabled = !cityCode;
-                if (cityCode) {
-                    allBarangays.filter(b => b.city_code === cityCode).forEach(b => {
-                        const opt = document.createElement('option');
-                        opt.value = b.brgy_code;
-                        opt.textContent = b.brgy_desc;
-                        barangaySelect.appendChild(opt);
-                    });
-                }
-            }
-
-            fetchAllData();
-        };
-
-        // Initialize all functionalities for the page
-        initializeUserTable();
-        initializeAddressDropdowns();
-    };
-
-    handleLoginPage();
-    handleUserListPage();
+/* ---------- Entrypoint ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+    initLogin();
+    initDashboard();
 });
