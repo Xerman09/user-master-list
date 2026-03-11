@@ -1,4 +1,5 @@
 // backend/server_users.js
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -10,10 +11,11 @@ const multer = require('multer');
 const app = express();
 
 /* ===== CONFIG ===== */
-const HOST = '0.0.0.0';
-const PORT = 3002;
-const DIRECTUS = 'http://100.110.197.61:8091/items';
-const BASE_FILE_HOST = process.env.BASE_FILE_HOST || '';
+const HOST = process.env.HOST || '0.0.0.0';
+const PORT = process.env.PORT || 3002;
+const DIRECTUS = `http://${process.env.API_IP || 'localhost'}:8091/items`;
+const BASE_FILE_HOST = process.env.BASE_FILE_HOST || process.env.FILE_HOST || '';
+const COMPANY_NAME = process.env.COMPANY_NAME || 'VERTEX';
 
 const DIRECTUS_TOKEN = (() => {
     const p = path.join(__dirname, 'directus.token');
@@ -320,6 +322,14 @@ app.get('/__debug/routes', (_req, res) => {
         .filter((r) => r.route)
         .map((r) => ({ method: Object.keys(r.route.methods)[0].toUpperCase(), path: r.route.path }));
     res.json(list);
+});
+
+/* ===== CONFIG ENDPOINT ===== */
+app.get('/config', (_req, res) => {
+    res.json({
+        FILE_HOST: BASE_FILE_HOST,
+        COMPANY_NAME: COMPANY_NAME
+    });
 });
 
 /* ===== ROUTES ===== */

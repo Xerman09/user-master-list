@@ -4,7 +4,8 @@
 const API_BASE = ''; // same-origin
 
 /* ---------- CONFIG ---------- */
-const FILE_HOST = 'http://192.168.1.154';
+let FILE_HOST = '';
+let COMPANY_NAME = 'VERTEX';
 
 /* ---------- Tiny DOM helpers ---------- */
 const $ = (sel) => document.querySelector(sel);
@@ -106,7 +107,10 @@ function makeSignaturePad(canvasId, clearBtnId) {
         ctx.restore();
     }
 
-    const pos = (e) => ({ x: e.offsetX, y: e.offsetY });
+    const pos = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
 
     let drawing = false, last = null;
     canvas.addEventListener('pointerdown', e => {
@@ -411,7 +415,10 @@ async function initDashboard() {
         if (!editUserModal.classList.contains('hidden')) closeModal(editUserModal);
     });
 
-    newUserBtn?.addEventListener('click', () => showModal(newUserModal));
+    newUserBtn?.addEventListener('click', () => {
+        showModal(newUserModal);
+        if (newSigPad) newSigPad.clear();
+    });
     cancelNewUserBtn?.addEventListener('click', () => closeModal(newUserModal));
     cancelEditUserBtn?.addEventListener('click', () => closeModal(editUserModal));
     logoutBtn?.addEventListener('click', async () => {
@@ -556,10 +563,9 @@ async function initDashboard() {
             if (normalizedSig) { sigPrev.src = normalizedSig; sigPrev.classList.remove('hidden'); }
             else { sigPrev.src = ''; sigPrev.classList.add('hidden'); }
         }
-        if (editSigPad) editSigPad.clear();
-
         if (editUserForm) editUserForm.dataset.userId = user.user_id;
         showModal(editUserModal);
+        if (editSigPad) editSigPad.clear();
     }
 
     const nonEmpty = (v) => (v !== undefined && v !== null && String(v).trim() !== '');
@@ -606,6 +612,8 @@ async function initDashboard() {
         if (nonEmpty(fd.get('sss')))         body.user_sss = fd.get('sss');
         if (nonEmpty(fd.get('philhealth')))  body.user_philhealth = fd.get('philhealth');
         if (nonEmpty(fd.get('pagibig')))     body.user_pagibig = fd.get('pagibig');
+        if (nonEmpty(fd.get('emergency_contact_name')))   body.emergency_contact_name = fd.get('emergency_contact_name');
+        if (nonEmpty(fd.get('emergency_contact_number'))) body.emergency_contact_number = fd.get('emergency_contact_number');
 
         body.isAdmin = !!fd.get('isAdmin');
 
@@ -646,8 +654,26 @@ async function initDashboard() {
     await loadUsers();
 }
 
+/* ---------- Global Config Loader ---------- */
+async function initConfig() {
+    try {
+        const config = await api('/config');
+        if (config.FILE_HOST) FILE_HOST = config.FILE_HOST;
+        if (config.COMPANY_NAME) {
+            COMPANY_NAME = config.COMPANY_NAME;
+            const brandEl = document.querySelector('.vos-brand');
+            if (brandEl) brandEl.textContent = COMPANY_NAME;
+            const titleEl = document.querySelector('title');
+            if (titleEl) titleEl.textContent = `Dashboard | ${COMPANY_NAME}`;
+        }
+    } catch (e) {
+        console.warn('Failed to load config, using defaults', e);
+    }
+}
+
 /* ---------- Entrypoint ---------- */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    await initConfig();
     initLogin();
     initDashboard();
 });
