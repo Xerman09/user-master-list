@@ -121,9 +121,18 @@
 
         /* ---------- STATIC LAYOUT ---------- */
         const FONT_FAMILY = "Poppins, sans-serif";
-        const PHOTO = { cx: 295, cy: 390, d: 400 };      // circular photo (center + diameter in DESIGN space)
-        const NAME_Y = 675;                               // baseline for name (DESIGN space)
-        const EMP_SIGN = { y: 840, w: DESIGN.w, h: 150 }; // employee signature band (centered)
+        const LAYOUTS = {
+            MEN2: {
+                PHOTO: { cx: 295, cy: 352, d: 260 },
+                NAME_Y: 560,
+                EMP_SIGN: { y: 760, w: DESIGN.w, h: 150 }
+            },
+            RSM: {
+                PHOTO: { cx: 295, cy: 390, d: 400 },
+                NAME_Y: 675,
+                EMP_SIGN: { y: 840, w: DESIGN.w, h: 150 }
+            }
+        };
 
         /* ---------- STATE ---------- */
         const state = {
@@ -345,6 +354,8 @@
 
             const u = state.user;
             const t = state.textStyles;
+            const layout = state.isRSM ? LAYOUTS.RSM : LAYOUTS.MEN2;
+            const { PHOTO, NAME_Y, EMP_SIGN } = layout;
 
             if (side === 'front') {
                 drawBackground(ctx, LOADED.bgF);
@@ -375,7 +386,7 @@
                     drawTextWithOutline(ctx, u.email || '', 190, 885, 'left', '#fff', 400, t.base, false);
 
                     // Employee signature
-                    drawCenteredSignature(ctx, LOADED.sigUser, 840, DESIGN.w, 150, true, true);
+                    drawCenteredSignature(ctx, LOADED.sigUser, EMP_SIGN.y, EMP_SIGN.w, EMP_SIGN.h, true, true);
                 } else {
                     // MEN2 POSITION
                     drawTextWithOutline(ctx, (u.position || '').toUpperCase(), DESIGN.w / 2, NAME_Y + 42, 'center', '#111', 700, 27);
@@ -386,7 +397,7 @@
                     drawTextWithOutline(ctx, u.email || '', 170, 725, 'left', '#111', 600, 24);
 
                     // Employee signature
-                    drawCenteredSignature(ctx, LOADED.sigUser, 760, DESIGN.w, 150, true, false);
+                    drawCenteredSignature(ctx, LOADED.sigUser, EMP_SIGN.y, EMP_SIGN.w, EMP_SIGN.h, true, false);
                 }
 
             } else {
@@ -450,12 +461,19 @@
 
             try {
                 const cfg = await fetchJSON('/config');
-                const comp = (cfg.COMPANY_NAME || 'MEN2').toUpperCase();
-                state.isRSM = comp.includes('RSM');
+                const code = (cfg.COMPANY_CODE || 'MEN2').toUpperCase();
+                state.isRSM = code === 'RSM';
                 state.companyPrefix = state.isRSM ? 'RSMHOLDINGS' : 'MEN2';
+
+                // Dynamically select background images based on the company code
+                const codeLower = code.toLowerCase();
+                state.images.bgF = `image/front-id-${codeLower}.png`;
+                state.images.bgB = `image/back-id-${codeLower}.png`;
             } catch (e) {
                 state.isRSM = false;
                 state.companyPrefix = 'MEN2';
+                state.images.bgF = `image/front-id-men2.png`;
+                state.images.bgB = `image/back-id-men2.png`;
             }
 
             // Load user from your API
