@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
         rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/tt-firs-neue-trial" rel="stylesheet">
     <style>
         :root {
             --ink: #0b2a3a;
@@ -125,12 +126,23 @@
             MEN2: {
                 PHOTO: { cx: 295, cy: 352, d: 260 },
                 NAME_Y: 560,
-                EMP_SIGN: { y: 760, w: DESIGN.w, h: 150 }
+                POS_Y: 602,
+                EMP_SIGN: { y: 760, w: DESIGN.w, h: 150 },
+                FONT: "Poppins, sans-serif"
             },
             RSM: {
                 PHOTO: { cx: 295, cy: 390, d: 400 },
                 NAME_Y: 675,
-                EMP_SIGN: { y: 840, w: DESIGN.w, h: 150 }
+                POS_Y: 772,
+                EMP_SIGN: { y: 840, w: DESIGN.w, h: 150 },
+                FONT: "Poppins, sans-serif"
+            },
+            HVN: {
+                PHOTO: { cx: 295, cy: 395, d: 225, shape: 'square' },
+                NAME_Y: 610,
+                POS_Y: 645,
+                EMP_SIGN: { y: 800, w: DESIGN.w, h: 150 },
+                FONT: "'TT Firs Neue Trial', sans-serif"
             }
         };
 
@@ -182,6 +194,7 @@
 
             const u = raw || {};
             return {
+                nickname: u.nickname || "",
                 id: u.user_id ?? 0,
                 email: u.user_email || "",
                 fname: u.user_fname || "",
@@ -268,11 +281,36 @@
             ctx.restore();
         }
 
-        function drawTextWithOutline(ctx, text, x, y, align = 'center', fill = '#111', weight = 700, sizePx = 26, hasOutline = true) {
+        function drawRectImage(ctx, img, cx, cy, d) {
+            if (!img) return;
+            const r = d / 2;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(cx - r, cy - r, d, d);
+            ctx.clip();
+            const iw = img.width, ih = img.height;
+            const s = Math.max(d / iw, d / ih); // cover
+            const dw = iw * s, dh = ih * s;
+            ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
+            ctx.restore();
+        }
+
+        function drawTextWithOutline(ctx, text, x, y, align = 'center', fill = '#111', weight = 700, sizePx = 26, hasOutline = true, shadow = null) {
+            const layout = state.companyCode ? LAYOUTS[state.companyCode] : null;
+            const fontFam = (layout && layout.FONT) ? layout.FONT : FONT_FAMILY;
+            ctx.save();
             ctx.fillStyle = fill;
             ctx.textAlign = align;
             ctx.textBaseline = 'alphabetic';
-            ctx.font = `${weight} ${sizePx}px ${FONT_FAMILY}`;
+            ctx.font = `${weight} ${sizePx}px ${fontFam}`;
+
+            if (shadow) {
+                ctx.shadowColor = shadow.color || 'rgba(0,0,0,0.25)';
+                ctx.shadowOffsetX = shadow.ox || 2;
+                ctx.shadowOffsetY = shadow.oy || 2;
+                ctx.shadowBlur = shadow.blur || 0;
+            }
+
             // outline then fill
             if (hasOutline) {
                 ctx.lineWidth = TEXT_OUTLINE_WIDTH;
@@ -280,6 +318,7 @@
                 ctx.strokeText(text, x, y);
             }
             ctx.fillText(text, x, y);
+            ctx.restore();
         }
 
         function cleanSignatureLine(img) {
@@ -354,31 +393,41 @@
 
             const u = state.user;
             const t = state.textStyles;
-            const layout = state.isRSM ? LAYOUTS.RSM : LAYOUTS.MEN2;
-            const { PHOTO, NAME_Y, EMP_SIGN } = layout;
+            const layout = LAYOUTS[state.companyCode] || LAYOUTS.MEN2;
+            const { PHOTO, NAME_Y, POS_Y, EMP_SIGN } = layout;
 
             if (side === 'front') {
                 drawBackground(ctx, LOADED.bgF);
-                drawCircleImage(ctx, LOADED.user, PHOTO.cx, PHOTO.cy, PHOTO.d);
+
+                if (PHOTO.shape === 'square') {
+                    drawRectImage(ctx, LOADED.user, PHOTO.cx, PHOTO.cy, PHOTO.d);
+                } else {
+                    drawCircleImage(ctx, LOADED.user, PHOTO.cx, PHOTO.cy, PHOTO.d);
+                }
 
                 if (state.showRing) {
                     ctx.beginPath();
-                    ctx.arc(PHOTO.cx, PHOTO.cy, PHOTO.d / 2 - 2, 0, Math.PI * 2);
+                    if (PHOTO.shape === 'square') {
+                        const r = PHOTO.d / 2;
+                        ctx.rect(PHOTO.cx - r, PHOTO.cy - r, PHOTO.d, PHOTO.d);
+                    } else {
+                        ctx.arc(PHOTO.cx, PHOTO.cy, PHOTO.d / 2 - 2, 0, Math.PI * 2);
+                    }
                     ctx.strokeStyle = '#0b2a3a';
                     ctx.lineWidth = 4;
                     ctx.stroke();
                 }
 
-                // NAME — stretched (X/Y) with white outline
-                ctx.save();
-                ctx.translate(DESIGN.w / 2, NAME_Y);
-                ctx.scale(Math.max(0.8, t.nameStretchX || 1), Math.max(0.8, t.nameStretchY || 1));
-                drawTextWithOutline(ctx, FULLNAME(u), 0, 0, 'center', '#111', 800, t.nameSize);
-                ctx.restore();
+                if (state.companyCode === 'RSM') {
+                    // NAME
+                    ctx.save();
+                    ctx.translate(DESIGN.w / 2, NAME_Y);
+                    ctx.scale(Math.max(0.8, t.nameStretchX || 1), Math.max(0.8, t.nameStretchY || 1));
+                    drawTextWithOutline(ctx, FULLNAME(u), 0, 0, 'center', '#111', 800, t.nameSize);
+                    ctx.restore();
 
-                if (state.isRSM) {
                     // RSM POSITION
-                    drawTextWithOutline(ctx, (u.position || '').toUpperCase(), DESIGN.w / 2, NAME_Y + t.nameSize + 55, 'center', '#fff', 700, 35, false);
+                    drawTextWithOutline(ctx, (u.position || '').toUpperCase(), DESIGN.w / 2, POS_Y, 'center', '#fff', 700, 35, false);
 
                     // RSM INFO (left aligned)
                     drawTextWithOutline(ctx, USERID(u.id), 230, 830, 'left', '#fff', 400, t.base, false);
@@ -387,13 +436,43 @@
 
                     // Employee signature
                     drawCenteredSignature(ctx, LOADED.sigUser, EMP_SIGN.y, EMP_SIGN.w, EMP_SIGN.h, true, true);
+                } else if (state.companyCode === 'HVN') {
+
+                    //nickname
+                    const nick = u.nickname ? `"${u.nickname.toUpperCase()}"` : "";
+                    drawTextWithOutline(ctx, nick, DESIGN.w / 2, 555, 'center', '#1a3243', 700, 45, false);
+
+                    // NAME
+                    ctx.save();
+                    ctx.translate(DESIGN.w / 2, NAME_Y);
+                    ctx.scale(Math.max(0.8, t.nameStretchX || 1), Math.max(0.8, t.nameStretchY || 1));
+                    drawTextWithOutline(ctx, FULLNAME(u), 0, 0, 'center', '#1a3243', 800, 30, false);
+                    ctx.restore();
+
+                    // HVN POSITION
+                    drawTextWithOutline(ctx, (u.position || '').toUpperCase(), DESIGN.w / 2, POS_Y, 'center', '#1a3243', 700, 27, false);
+
+                    // HVN INFO (centered)
+                    drawTextWithOutline(ctx, "ID NO: " + USERID(u.id), DESIGN.w / 2, 700, 'center', '#1a3243', 600, 26, false);
+                    drawTextWithOutline(ctx, "PHONE NO: " + u.contact || '', DESIGN.w / 2, 735, 'center', '#1a3243', 600, 26, false);
+                    drawTextWithOutline(ctx, "EMAIL: " + u.email || '', DESIGN.w / 2, 770, 'center', '#1a3243', 600, 24, false);
+
+                    // Employee signature
+                    drawCenteredSignature(ctx, LOADED.sigUser, EMP_SIGN.y, EMP_SIGN.w, EMP_SIGN.h, true, false);
                 } else {
+                    // NAME
+                    ctx.save();
+                    ctx.translate(DESIGN.w / 2, NAME_Y);
+                    ctx.scale(Math.max(0.8, t.nameStretchX || 1), Math.max(0.8, t.nameStretchY || 1));
+                    drawTextWithOutline(ctx, FULLNAME(u), 0, 0, 'center', '#111', 800, t.nameSize);
+                    ctx.restore();
+
                     // MEN2 POSITION
-                    drawTextWithOutline(ctx, (u.position || '').toUpperCase(), DESIGN.w / 2, NAME_Y + 42, 'center', '#111', 700, 27);
+                    drawTextWithOutline(ctx, (u.position || '').toUpperCase(), DESIGN.w / 2, POS_Y, 'center', '#111', 700, 27);
 
                     // MEN2 INFO (left aligned)
-                    drawTextWithOutline(ctx, USERID(u.id), 170, 652, 'left', '#111', 600, 26);
-                    drawTextWithOutline(ctx, u.contact || '', 170, 687, 'left', '#111', 600, 26);
+                    drawTextWithOutline(ctx, USERID(u.id), 170, 652, 'left', '#111', 600, 24);
+                    drawTextWithOutline(ctx, u.contact || '', 170, 687, 'left', '#111', 600, 24);
                     drawTextWithOutline(ctx, u.email || '', 170, 725, 'left', '#111', 600, 24);
 
                     // Employee signature
@@ -402,8 +481,7 @@
 
             } else {
                 drawBackground(ctx, LOADED.bgB);
-
-                if (state.isRSM) {
+                if (state.companyCode === 'RSM') {
                     // RSM Back details
                     drawTextWithOutline(ctx, ADDRESS(u), 250, 255, 'left', '#111', 400, 23);
                     drawTextWithOutline(ctx, fmtBday(u.birthday), 250, 289, 'left', '#111', 400, 25);
@@ -414,6 +492,17 @@
 
                     drawTextWithOutline(ctx, (u.e_name || '').toUpperCase(), 30, 510, 'left', '#111', 400, 23)
                     drawTextWithOutline(ctx, u.e_contact || '', 300, 510, 'left', '#111', 400, 25);
+                } else if (state.companyCode === 'HVN') {
+                    // HVN Back details
+                    const hvnShadow = { color: 'rgba(0,0,0,0.25)', ox: 2, oy: 2 };
+                    drawTextWithOutline(ctx, "ADDRESS: " + ADDRESS(u), DESIGN.w / 2, 188, 'center', '#1a3243', 600, 23, false, hvnShadow);
+                    drawTextWithOutline(ctx, "BIRTHDAY: " + fmtBday(u.birthday), DESIGN.w / 2, 220, 'center', '#1a3243', 600, 25, false, hvnShadow);
+                    drawTextWithOutline(ctx, "SSS NO: " + u.sss || '', DESIGN.w / 2, 253, 'center', '#1a3243', 600, 25, false, hvnShadow);
+                    drawTextWithOutline(ctx, "PHILHEALTH NO: " + u.philhealth || '', DESIGN.w / 2, 285, 'center', '#1a3243', 600, 25, false, hvnShadow);
+                    drawTextWithOutline(ctx, "PAG-IBIG NO: " + u.pagibig || '', DESIGN.w / 2, 317, 'center', '#1a3243', 600, 25, false, hvnShadow);
+
+                    //drawTextWithOutline(ctx, (u.e_name || '').toUpperCase(), 20, 462, 'left', '#1a3243', 600, 23, false, hvnShadow)
+                    //drawTextWithOutline(ctx, u.e_contact || '', 300, 462, 'left', '#1a3243', 600, 25, false, hvnShadow);
                 } else {
                     // MEN2 Back details
                     drawTextWithOutline(ctx, ADDRESS(u), 250, 258, 'left', '#111', 600, 23);
@@ -462,15 +551,22 @@
             try {
                 const cfg = await fetchJSON('/config');
                 const code = (cfg.COMPANY_CODE || 'MEN2').toUpperCase();
-                state.isRSM = code === 'RSM';
-                state.companyPrefix = state.isRSM ? 'RSMHOLDINGS' : 'MEN2';
+                state.companyCode = code;
+
+                if (code === 'RSM') {
+                    state.companyPrefix = 'RSMHOLDINGS';
+                } else if (code === 'HVN') {
+                    state.companyPrefix = 'HVN';
+                } else {
+                    state.companyPrefix = 'MEN2';
+                }
 
                 // Dynamically select background images based on the company code
                 const codeLower = code.toLowerCase();
                 state.images.bgF = `image/front-id-${codeLower}.png`;
                 state.images.bgB = `image/back-id-${codeLower}.png`;
             } catch (e) {
-                state.isRSM = false;
+                state.companyCode = 'MEN2';
                 state.companyPrefix = 'MEN2';
                 state.images.bgF = `image/front-id-men2.png`;
                 state.images.bgB = `image/back-id-men2.png`;

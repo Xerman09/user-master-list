@@ -213,7 +213,7 @@ const FIELDS = [
     'user_province','user_city','user_brgy','user_department',
     'user_position','user_dateOfHire','user_bday','rf_id','user_image','signature','isAdmin',
     'user_sss','user_philhealth','user_tin','user_pagibig','emergency_contact_name','emergency_contact_number',
-    'external_id','externalId','role_id','biometric_id',
+    'external_id','externalId','role_id','biometric_id','nickname',
     'is_deleted','isDeleted',  // FIX: ensure status is fetched if present in collection
     'updateAt','update_at'
 ].join(',');
