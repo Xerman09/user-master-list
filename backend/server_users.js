@@ -19,18 +19,103 @@ const COMPANY_NAME = process.env.COMPANY_NAME || 'VERTEX';
 const COMPANY_CODE = process.env.COMPANY_CODE || 'MEN2';
 
 const DIRECTUS_TOKEN = (() => {
-    const p = path.join(__dirname, 'directus.token');
-    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8').trim();
+    // 1. Check .env variable first
+    if (process.env.DIRECTUS_TOKEN && process.env.DIRECTUS_TOKEN.trim()) {
+        console.log('✅ Using DIRECTUS_TOKEN from .env');
+        return process.env.DIRECTUS_TOKEN.trim();
+    }
 
-    console.warn('⚠️ directus.token not found (optional).');
+    // 2. Fall back to directus.token file
+    const p = path.join(__dirname, 'directus.token');
+    if (fs.existsSync(p)) {
+        const fileToken = fs.readFileSync(p, 'utf8').trim();
+        if (fileToken) {
+            console.log('✅ Using DIRECTUS_TOKEN from directus.token file');
+            return fileToken;
+        }
+    }
+
+    // 3. No token — system will work without authentication
+    console.warn('⚠️ No DIRECTUS_TOKEN set — running without Directus authentication (public access only).');
     return '';
 })();
 
-const api = axios.create({
+/* Axios instance WITH token on primary port */
+const apiWithToken = axios.create({
     baseURL: DIRECTUS,
     timeout: 15000,
     headers: { ...(DIRECTUS_TOKEN ? { Authorization: `Bearer ${DIRECTUS_TOKEN}` } : {}) },
 });
+
+/* Axios instance WITHOUT token on primary port */
+const apiNoToken = axios.create({
+    baseURL: DIRECTUS,
+    timeout: 15000,
+});
+
+/* Fallback Directus URL (try common alternative port 8093) */
+const DIRECTUS_FALLBACK = `http://${process.env.API_IP || 'localhost'}:8093/items`;
+const apiFallback = axios.create({
+    baseURL: DIRECTUS_FALLBACK,
+    timeout: 15000,
+    headers: { ...(DIRECTUS_TOKEN ? { Authorization: `Bearer ${DIRECTUS_TOKEN}` } : {}) },
+});
+const apiFallbackNoToken = axios.create({
+    baseURL: DIRECTUS_FALLBACK,
+    timeout: 15000,
+});
+
+/**
+ * Resilient API wrapper:
+ *  1. Tries primary port with token
+ *  2. On 401/403 → retries primary port without token
+ *  3. On any failure → tries fallback port (8093) with token, then without
+ *  Works even when token is null, empty, or invalid
+ */
+async function resilientCall(method, args) {
+    // 1. Try primary with token
+    try {
+        return await apiWithToken[method](...args);
+    } catch (err1) {
+        const status1 = err1.response?.status;
+        // 2. If 401/403, try primary without token
+        if (DIRECTUS_TOKEN && [401, 403].includes(status1)) {
+            console.warn('⚠️ Token rejected on primary, retrying without token...');
+            try {
+                return await apiNoToken[method](...args);
+            } catch (err2) {
+                // Fall through to fallback
+            }
+        }
+        // 3. Try fallback port with token
+        try {
+            const result = await apiFallback[method](...args);
+            console.log(`↪️ Fallback port (8093) succeeded for ${method.toUpperCase()} ${args[0]}`);
+            return result;
+        } catch (err3) {
+            // 4. Try fallback port without token
+            if (DIRECTUS_TOKEN && [401, 403].includes(err3.response?.status)) {
+                try {
+                    const result = await apiFallbackNoToken[method](...args);
+                    console.log(`↪️ Fallback port (8093, no token) succeeded for ${method.toUpperCase()} ${args[0]}`);
+                    return result;
+                } catch (err4) {
+                    // All attempts failed
+                }
+            }
+        }
+        // All attempts failed — throw original error
+        throw err1;
+    }
+}
+
+const api = {
+    get:   (url, config)       => resilientCall('get',   [url, config]),
+    post:  (url, data, config) => resilientCall('post',  [url, data, config]),
+    patch: (url, data, config) => resilientCall('patch', [url, data, config]),
+    put:   (url, data, config) => resilientCall('put',   [url, data, config]),
+};
+
 
 /* ===== MIDDLEWARE ===== */
 app.use(cors({ origin: (_o, cb) => cb(null, true), credentials: true }));
