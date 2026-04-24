@@ -483,14 +483,14 @@
                 drawBackground(ctx, LOADED.bgB);
                 if (state.companyCode === 'RSM') {
                     // RSM Back details
-                    drawTextWithOutline(ctx, ADDRESS(u), 250, 255, 'left', '#111', 400, 23);
-                    drawTextWithOutline(ctx, fmtBday(u.birthday), 250, 289, 'left', '#111', 400, 25);
-                    drawTextWithOutline(ctx, u.sss || '', 250, 325, 'left', '#111', 400, 25);
-                    drawTextWithOutline(ctx, u.philhealth || '', 315, 358, 'left', '#111', 400, 25);
-                    drawTextWithOutline(ctx, u.pagibig || '', 250, 395, 'left', '#111', 400, 25);
-                    drawTextWithOutline(ctx, u.tin || '', 250, 428, 'left', '#111', 400, 25);
+                    drawTextWithOutline(ctx, ADDRESS(u), 220, 277, 'left', '#111', 400, 23);
+                    drawTextWithOutline(ctx, fmtBday(u.birthday), 220, 310, 'left', '#111', 400, 25);
+                    drawTextWithOutline(ctx, u.sss || '', 220, 343, 'left', '#111', 400, 25);
+                    drawTextWithOutline(ctx, u.philhealth || '', 220, 373, 'left', '#111', 400, 25);
+                    drawTextWithOutline(ctx, u.pagibig || '', 220, 403, 'left', '#111', 400, 25);
+                    drawTextWithOutline(ctx, u.tin || '', 220, 435, 'left', '#111', 400, 25);
 
-                    drawTextWithOutline(ctx, (u.e_name || '').toUpperCase(), 30, 510, 'left', '#111', 400, 23)
+                    drawTextWithOutline(ctx, (u.e_name || '').toUpperCase(), 53, 510, 'left', '#111', 400, 23)
                     drawTextWithOutline(ctx, u.e_contact || '', 300, 510, 'left', '#111', 400, 25);
                 } else if (state.companyCode === 'HVN') {
                     // HVN Back details
