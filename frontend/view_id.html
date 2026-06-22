@@ -366,9 +366,6 @@
                 ctx.putImageData(imgData, 0, 0);
             } catch (e) {
                 console.error("CORS or getImageData error:", e);
-                // Draw a tiny red dot to indicate failure visually
-                ctx.fillStyle = 'red';
-                ctx.fillRect(0, 0, 10, 10);
             }
             img._cleaned = c;
             return c;
