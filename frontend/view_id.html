@@ -145,8 +145,8 @@
                 FONT: "'TT Firs Neue Trial', sans-serif"
             },
             RC2: {
-                PHOTO: { cx: 295, cy: 380, d: 260, shape: 'rounded_square', r: 30 },
-                NAME_Y: 600,
+                PHOTO: { cx: 295, cy: 425, d: 295, shape: 'rounded_square', r: 30 },
+                NAME_Y: 620,
                 POS_Y: 710,
                 EMP_SIGN: { y: 800, w: DESIGN.w, h: 150 },
                 FONT: "'Poppins', sans-serif"
@@ -373,7 +373,7 @@
                         const h = PHOTO.d;
                         ctx.save();
                         ctx.beginPath();
-                        ctx.roundRect(PHOTO.cx - w/2, PHOTO.cy - h/2, w, h, r);
+                        ctx.roundRect(PHOTO.cx - w / 2, PHOTO.cy - h / 2, w, h, r);
                         ctx.clip();
                         const iw = LOADED.user.width, ih = LOADED.user.height;
                         const s = Math.max(w / iw, h / ih);
@@ -394,7 +394,7 @@
                         const r = PHOTO.r || 30;
                         const w = PHOTO.d;
                         const h = PHOTO.d;
-                        ctx.roundRect(PHOTO.cx - w/2, PHOTO.cy - h/2, w, h, r);
+                        ctx.roundRect(PHOTO.cx - w / 2, PHOTO.cy - h / 2, w, h, r);
                     } else {
                         ctx.arc(PHOTO.cx, PHOTO.cy, PHOTO.d / 2 - 2, 0, Math.PI * 2);
                     }
@@ -455,23 +455,16 @@
                     drawTextWithOutline(ctx, lname, 0, 40, 'center', '#e87817', 800, 36, false); // orange
                     ctx.restore();
 
-                    // RC2 POSITION (in a blue box)
+                    // RC2 POSITION
                     const posStr = (u.position || 'POSITION').toUpperCase();
                     ctx.save();
-                    const boxW = 340;
-                    const boxH = 46;
-                    ctx.beginPath();
-                    ctx.roundRect(DESIGN.w / 2 - boxW/2, POS_Y, boxW, boxH, 8);
-                    ctx.fillStyle = '#093a5e';
-                    ctx.fill();
-                    // text inside box
-                    drawTextWithOutline(ctx, posStr, DESIGN.w / 2, POS_Y + 32, 'center', '#ffffff', 700, 24, false);
+                    drawTextWithOutline(ctx, posStr, DESIGN.w / 2, POS_Y + 10, 'center', '#ffffff', 800, 24, false);
                     ctx.restore();
 
                     // RC2 INFO
                     const infoValueX = 240;
                     const txtColor = '#0b426b';
-                    
+
                     ctx.save();
                     ctx.textAlign = 'left';
                     ctx.textBaseline = 'alphabetic';
@@ -479,7 +472,7 @@
                     ctx.fillStyle = txtColor;
 
                     // Values aligned with background labels
-                    ctx.fillText(u.rfid ? u.rfid : USERID(u.id), infoValueX, 780);
+                    ctx.fillText(`RC2-${String(u.id).padStart(4, '0')}`, infoValueX, 780);
                     ctx.fillText(u.contact || '', infoValueX, 805);
                     ctx.fillText(u.email || '', infoValueX, 830);
 
@@ -531,7 +524,7 @@
                 } else if (state.companyCode === 'RC2') {
                     // RC2 Back details
                     const valStartX = 220; // Fixed X coordinate for column alignment
-                    let currY = 285;
+                    let currY = 293;
                     const spacing = 28;
 
                     ctx.save();
@@ -552,17 +545,20 @@
                     drawBackValue(u.pagibig || '', currY); currY += spacing;
                     drawBackValue(u.tin || '', currY); currY += spacing;
 
-                    currY += 45; // skips the background label "IN CASE OF EMERGENCY..."
-                    currY += 24;
-                    
+                    currY += 55; // skips the background label "IN CASE OF EMERGENCY..."
+
                     const emName = (u.e_name || '').trim().toUpperCase();
                     const emContact = (u.e_contact || '').trim();
                     if (emName || emContact) {
                         ctx.textAlign = 'center';
                         ctx.font = `700 18px ${FONT_FAMILY}`;
                         ctx.fillStyle = '#093a5e';
-                        const emText = emName && emContact ? `${emName} | ${emContact}` : (emName || emContact);
-                        ctx.fillText(emText, DESIGN.w / 2, currY);
+                        if (emName) {
+                            ctx.fillText(emName, DESIGN.w / 4, currY);
+                        }
+                        if (emContact) {
+                            ctx.fillText(emContact, (DESIGN.w * 3) / 4, currY);
+                        }
                     }
 
                     ctx.restore();
