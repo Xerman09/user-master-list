@@ -143,6 +143,13 @@
                 POS_Y: 645,
                 EMP_SIGN: { y: 800, w: DESIGN.w, h: 150 },
                 FONT: "'TT Firs Neue Trial', sans-serif"
+            },
+            RC2: {
+                PHOTO: { cx: 295, cy: 380, d: 260, shape: 'rounded_square', r: 30 },
+                NAME_Y: 600,
+                POS_Y: 710,
+                EMP_SIGN: { y: 800, w: DESIGN.w, h: 150 },
+                FONT: "'Poppins', sans-serif"
             }
         };
 
@@ -377,9 +384,13 @@
             const dy = bandY + (bandH - dh) / 2;
             ctx.save();
             if (colorWhite) {
-                ctx.filter = 'brightness(0) invert(1)';
-            } else if (bolden) {
-                ctx.filter = 'contrast(2.2) brightness(0.7)';
+                ctx.filter = 'contrast(2.2) invert(1)';
+                ctx.globalCompositeOperation = 'screen';
+            } else {
+                if (bolden) {
+                    ctx.filter = 'contrast(2.2) brightness(0.7)';
+                }
+                ctx.globalCompositeOperation = 'multiply';
             }
             ctx.drawImage(cleanImg, dx, dy, dw, dh);
             ctx.restore();
@@ -401,6 +412,21 @@
 
                 if (PHOTO.shape === 'square') {
                     drawRectImage(ctx, LOADED.user, PHOTO.cx, PHOTO.cy, PHOTO.d);
+                } else if (PHOTO.shape === 'rounded_square') {
+                    if (LOADED.user) {
+                        const r = PHOTO.r || 30;
+                        const w = PHOTO.d;
+                        const h = PHOTO.d;
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.roundRect(PHOTO.cx - w/2, PHOTO.cy - h/2, w, h, r);
+                        ctx.clip();
+                        const iw = LOADED.user.width, ih = LOADED.user.height;
+                        const s = Math.max(w / iw, h / ih);
+                        const dw = iw * s, dh = ih * s;
+                        ctx.drawImage(LOADED.user, PHOTO.cx - dw / 2, PHOTO.cy - dh / 2, dw, dh);
+                        ctx.restore();
+                    }
                 } else {
                     drawCircleImage(ctx, LOADED.user, PHOTO.cx, PHOTO.cy, PHOTO.d);
                 }
@@ -410,11 +436,16 @@
                     if (PHOTO.shape === 'square') {
                         const r = PHOTO.d / 2;
                         ctx.rect(PHOTO.cx - r, PHOTO.cy - r, PHOTO.d, PHOTO.d);
+                    } else if (PHOTO.shape === 'rounded_square') {
+                        const r = PHOTO.r || 30;
+                        const w = PHOTO.d;
+                        const h = PHOTO.d;
+                        ctx.roundRect(PHOTO.cx - w/2, PHOTO.cy - h/2, w, h, r);
                     } else {
                         ctx.arc(PHOTO.cx, PHOTO.cy, PHOTO.d / 2 - 2, 0, Math.PI * 2);
                     }
-                    ctx.strokeStyle = '#0b2a3a';
-                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = state.companyCode === 'RC2' ? '#093a5e' : '#0b2a3a';
+                    ctx.lineWidth = state.companyCode === 'RC2' ? 6 : 4;
                     ctx.stroke();
                 }
 
@@ -459,6 +490,46 @@
 
                     // Employee signature
                     drawCenteredSignature(ctx, LOADED.sigUser, EMP_SIGN.y, EMP_SIGN.w, EMP_SIGN.h, true, false);
+                } else if (state.companyCode === 'RC2') {
+                    // RC2 Name: Two lines (Blue for first/middle, Orange for last)
+                    const fname = `${u.fname}${u.mname ? " " + u.mname[0].toUpperCase() + "." : ""}`.toUpperCase();
+                    const lname = u.lname.toUpperCase();
+
+                    ctx.save();
+                    ctx.translate(DESIGN.w / 2, NAME_Y);
+                    drawTextWithOutline(ctx, fname, 0, 0, 'center', '#093a5e', 800, 36, false); // dark blue
+                    drawTextWithOutline(ctx, lname, 0, 40, 'center', '#e87817', 800, 36, false); // orange
+                    ctx.restore();
+
+                    // RC2 POSITION (in a blue box)
+                    const posStr = (u.position || 'POSITION').toUpperCase();
+                    ctx.save();
+                    const boxW = 340;
+                    const boxH = 46;
+                    ctx.beginPath();
+                    ctx.roundRect(DESIGN.w / 2 - boxW/2, POS_Y, boxW, boxH, 8);
+                    ctx.fillStyle = '#093a5e';
+                    ctx.fill();
+                    // text inside box
+                    drawTextWithOutline(ctx, posStr, DESIGN.w / 2, POS_Y + 32, 'center', '#ffffff', 700, 24, false);
+                    ctx.restore();
+
+                    // RC2 INFO
+                    const infoValueX = 240;
+                    const txtColor = '#0b426b';
+                    
+                    ctx.save();
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'alphabetic';
+                    ctx.font = `500 18px ${FONT_FAMILY}`;
+                    ctx.fillStyle = txtColor;
+
+                    // Values aligned with background labels
+                    ctx.fillText(u.rfid ? u.rfid : USERID(u.id), infoValueX, 780);
+                    ctx.fillText(u.contact || '', infoValueX, 805);
+                    ctx.fillText(u.email || '', infoValueX, 830);
+
+                    ctx.restore();
                 } else {
                     // NAME
                     ctx.save();
@@ -503,6 +574,44 @@
 
                     drawTextWithOutline(ctx, (u.e_name || '').toUpperCase(), 20, 375, 'left', '#1a3243', 600, 23, false, hvnShadow)
                     drawTextWithOutline(ctx, u.e_contact || '', 300, 375, 'left', '#1a3243', 600, 25, false, hvnShadow);
+                } else if (state.companyCode === 'RC2') {
+                    // RC2 Back details
+                    const valStartX = 220; // Fixed X coordinate for column alignment
+                    let currY = 285;
+                    const spacing = 28;
+
+                    ctx.save();
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'alphabetic';
+                    ctx.font = `500 18px ${FONT_FAMILY}`;
+                    ctx.fillStyle = '#0b426b';
+
+                    const drawBackValue = (val, y) => {
+                        if (val) ctx.fillText(val, valStartX, y);
+                    };
+
+                    // Only draw the values (aligned with background labels)
+                    drawBackValue(ADDRESS(u), currY); currY += spacing;
+                    drawBackValue(fmtBday(u.birthday), currY); currY += spacing;
+                    drawBackValue(u.sss || '', currY); currY += spacing;
+                    drawBackValue(u.philhealth || '', currY); currY += spacing;
+                    drawBackValue(u.pagibig || '', currY); currY += spacing;
+                    drawBackValue(u.tin || '', currY); currY += spacing;
+
+                    currY += 45; // skips the background label "IN CASE OF EMERGENCY..."
+                    currY += 24;
+                    
+                    const emName = (u.e_name || '').trim().toUpperCase();
+                    const emContact = (u.e_contact || '').trim();
+                    if (emName || emContact) {
+                        ctx.textAlign = 'center';
+                        ctx.font = `700 18px ${FONT_FAMILY}`;
+                        ctx.fillStyle = '#093a5e';
+                        const emText = emName && emContact ? `${emName} | ${emContact}` : (emName || emContact);
+                        ctx.fillText(emText, DESIGN.w / 2, currY);
+                    }
+
+                    ctx.restore();
                 } else {
                     // MEN2 Back details
                     drawTextWithOutline(ctx, ADDRESS(u), 250, 258, 'left', '#111', 600, 23);
@@ -557,6 +666,8 @@
                     state.companyPrefix = 'RSMHOLDINGS';
                 } else if (code === 'HVN') {
                     state.companyPrefix = 'HVN';
+                } else if (code === 'RC2') {
+                    state.companyPrefix = 'RC2';
                 } else {
                     state.companyPrefix = 'MEN2';
                 }

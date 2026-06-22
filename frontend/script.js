@@ -427,8 +427,13 @@ async function initDashboard() {
     });
 
     /* ---------- Create User ---------- */
+    let isSubmittingNew = false;
     newUserForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (isSubmittingNew) return;
+        isSubmittingNew = true;
+        const submitBtn = document.querySelector('button[form="newUserForm"]');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
         newErr.textContent = '';
         const fd = new FormData(newUserForm);
 
@@ -486,6 +491,9 @@ async function initDashboard() {
             await loadUsers();
         } catch (err) {
             newErr.textContent = `Creation failed: ${err.message}`;
+        } finally {
+            isSubmittingNew = false;
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save User'; }
         }
     });
 
@@ -570,10 +578,20 @@ async function initDashboard() {
 
     const nonEmpty = (v) => (v !== undefined && v !== null && String(v).trim() !== '');
 
+    let isSubmittingEdit = false;
     editUserForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (isSubmittingEdit) return;
+        isSubmittingEdit = true;
+        const submitBtn = document.querySelector('button[form="editUserForm"]');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Updating...'; }
+
         const userId = editUserForm?.dataset?.userId;
-        if (!userId) return;
+        if (!userId) {
+            isSubmittingEdit = false;
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Update User'; }
+            return;
+        }
 
         const fd = new FormData(editUserForm);
         const pCode = fd.get('province') || '';
@@ -637,6 +655,9 @@ async function initDashboard() {
             await loadUsers();
         } catch (err) {
             alert(`Update user failed: ${err.message}`);
+        } finally {
+            isSubmittingEdit = false;
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Update User'; }
         }
     });
 

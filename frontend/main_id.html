@@ -250,7 +250,10 @@
         const dx = (DESIGN.w - dw) / 2;
         const dy = bandY + (bandH - dh) / 2;
         ctx.save();
-        if (bolden) ctx.filter = 'contrast(2.2) brightness(0.7)';
+        if (bolden) {
+            ctx.filter = 'contrast(2.2) brightness(0.7)';
+        }
+        ctx.globalCompositeOperation = 'multiply';
         ctx.drawImage(img, dx, dy, dw, dh);
         ctx.restore();
     }
