@@ -78,6 +78,12 @@ async function resilientCall(method, args) {
         return await apiWithToken[method](...args);
     } catch (err1) {
         const status1 = err1.response?.status;
+        
+        // Do NOT retry non-GET requests on timeout to prevent duplicate records
+        if (method !== 'get' && err1.code === 'ECONNABORTED') {
+            throw err1;
+        }
+
         // 2. If 401/403, try primary without token
         if (DIRECTUS_TOKEN && [401, 403].includes(status1)) {
             console.warn('⚠️ Token rejected on primary, retrying without token...');
