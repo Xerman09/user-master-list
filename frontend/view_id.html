@@ -328,68 +328,25 @@
             ctx.restore();
         }
 
-        function cleanSignatureLine(img) {
-            if (!img) return null;
-            if (img._cleaned) return img._cleaned;
-            const c = document.createElement('canvas');
-            c.width = img.width;
-            c.height = img.height;
-            const ctx = c.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            try {
-                const imgData = ctx.getImageData(0, 0, c.width, c.height);
-                const data = imgData.data;
-                const w = c.width, h = c.height;
-                // Look for horizontal lines even if slightly thick or tilted
-                for (let y = 0; y < h; y++) {
-                    let linePixels = 0;
-                    for (let x = 0; x < w; x++) {
-                        // check current pixel and adjacent vertical pixels
-                        let hit = false;
-                        for (let dy = -1; dy <= 1; dy++) {
-                            let yy = y + dy;
-                            if (yy >= 0 && yy < h) {
-                                let i = (yy * w + x) * 4;
-                                if (data[i + 3] > 20) hit = true;
-                            }
-                        }
-                        if (hit) linePixels++;
-                    }
-                    // If 30% of the row's width has ink in this small vertical window
-                    if (linePixels > w * 0.3) {
-                        for (let x = 0; x < w; x++) {
-                            let i = (y * w + x) * 4;
-                            data[i + 3] = 0; // erase
-                        }
-                    }
-                }
-                ctx.putImageData(imgData, 0, 0);
-            } catch (e) {
-                console.error("CORS or getImageData error:", e);
-            }
-            img._cleaned = c;
-            return c;
-        }
 
         function drawCenteredSignature(ctx, img, bandY, bandW, bandH, bolden = true, colorWhite = false) {
             if (!img) return;
-            const cleanImg = cleanSignatureLine(img) || img;
-            const iw = cleanImg.width, ih = cleanImg.height;
+            const iw = img.width, ih = img.height;
             const s = Math.min(bandW / iw, bandH / ih);
             const dw = iw * s, dh = ih * s;
             const dx = (DESIGN.w - dw) / 2;
             const dy = bandY + (bandH - dh) / 2;
             ctx.save();
             if (colorWhite) {
-                ctx.filter = 'contrast(2.2) invert(1)';
+                ctx.filter = 'contrast(3) invert(1)';
                 ctx.globalCompositeOperation = 'screen';
             } else {
                 if (bolden) {
-                    ctx.filter = 'contrast(2.2) brightness(0.7)';
+                    ctx.filter = 'contrast(3)';
                 }
                 ctx.globalCompositeOperation = 'multiply';
             }
-            ctx.drawImage(cleanImg, dx, dy, dw, dh);
+            ctx.drawImage(img, dx, dy, dw, dh);
             ctx.restore();
         }
 
