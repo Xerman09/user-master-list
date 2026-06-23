@@ -242,17 +242,19 @@ function sanitizeUserPayload(src, isPatch = false) {
             }
         } else if (['isAdmin', 'isDeleted', 'is_deleted'].includes(k)) {
             if (isPatch && v === undefined) continue;
-            out[k] = v ? 1 : 0; // Convert boolean to number (for Directus BIT/boolean)
+            out[k] = !!v; // Send actual boolean instead of 1/0
         } else {
             if (isPatch && v === undefined) continue;
             out[k] = v;
         }
     }
 
-    // FIX: if client sent isDeleted, map to is_deleted for Directus collections
+    // Support both field names since schemas differ
     if ('isDeleted' in out && !('is_deleted' in out)) {
         out.is_deleted = out.isDeleted;
-        delete out.isDeleted;
+    }
+    if ('is_deleted' in out && !('isDeleted' in out)) {
+        out.isDeleted = out.is_deleted;
     }
 
     return out;
