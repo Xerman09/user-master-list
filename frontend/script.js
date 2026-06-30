@@ -473,6 +473,7 @@ async function initDashboard() {
             user_dateOfHire: fd.get('dateOfHire') || null,
             rf_id: fd.get('rf_id') || null,
             isAdmin: !!fd.get('isAdmin'),
+            is_employee: !!fd.get('is_employee'),
             emergency_contact_name: fd.get('emergency_contact_name') || null,
             emergency_contact_number: fd.get('emergency_contact_number') || null,
             ...(userImageUrl ? { user_image: userImageUrl } : {}),
@@ -552,6 +553,7 @@ async function initDashboard() {
         setVal('editPhilhealth', user.user_philhealth || '');
         setVal('editPagibig', user.user_pagibig || '');
         setChecked('editIsAdmin', !!user.isAdmin);
+        setChecked('editIsEmployee', !!user.is_employee);
 
         // FIX: now always present (backend guarantees), but default-safe anyway
         setChecked('editIsDelete', !!user.isDeleted);
@@ -634,6 +636,7 @@ async function initDashboard() {
         if (nonEmpty(fd.get('emergency_contact_number'))) body.emergency_contact_number = fd.get('emergency_contact_number');
 
         body.isAdmin = !!fd.get('isAdmin');
+        body.is_employee = !!fd.get('is_employee');
 
         // Inactive toggle → backend maps to is_deleted
         const editInactiveChecked = getEl('editIsDelete')?.checked ?? false;

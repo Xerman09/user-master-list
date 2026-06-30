@@ -201,6 +201,7 @@ function transformUser(u) {
         is_deleted: u.is_deleted ?? undefined, // passthrough if present
         isDeleted: normalizedIsDeleted,        // FIX: guaranteed boolean
         isAdmin: toBoolMaybeBuffer(u.isAdmin),
+        is_employee: toBoolMaybeBuffer(u.is_employee),
     };
 }
 
@@ -240,7 +241,7 @@ function sanitizeUserPayload(src, isPatch = false) {
                 const n = v === '' || v == null ? null : Number(v);
                 out[k] = Number.isFinite(n) ? n : null;
             }
-        } else if (['isAdmin', 'isDeleted', 'is_deleted'].includes(k)) {
+        } else if (['isAdmin', 'isDeleted', 'is_deleted', 'is_employee'].includes(k)) {
             if (isPatch && v === undefined) continue;
             out[k] = !!v; // Send actual boolean instead of 1/0
         } else {
@@ -307,7 +308,7 @@ const FIELDS = [
     'user_position','user_dateOfHire','user_bday','rf_id','user_image','signature','isAdmin',
     'user_sss','user_philhealth','user_tin','user_pagibig','emergency_contact_name','emergency_contact_number',
     'external_id','externalId','role_id','biometric_id','nickname',
-    'is_deleted','isDeleted',  // FIX: ensure status is fetched if present in collection
+    'is_deleted','isDeleted','is_employee',  // FIX: ensure status is fetched if present in collection
     'updateAt','update_at'
 ].join(',');
 
