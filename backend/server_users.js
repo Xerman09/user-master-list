@@ -371,6 +371,45 @@ app.patch('/items/user/:id', async (req, res) => {
     }
 });
 
+/* ===== USER SCHEDULE ===== */
+app.get('/items/user_schedule', async (req, res) => {
+    try {
+        const { filter } = req.query;
+        const params = { limit: -1 };
+        if (filter) params.filter = filter;
+        
+        const { data } = await api.get('/user_schedule', { params });
+        res.json(data);
+    } catch (err) {
+        res
+            .status(err.response?.status || 502)
+            .json({ error: 'User schedule list failed', detail: err.response?.data || err.message });
+    }
+});
+
+app.post('/items/user_schedule', async (req, res) => {
+    try {
+        const { data } = await api.post('/user_schedule', req.body);
+        res.json(data);
+    } catch (err) {
+        res
+            .status(err.response?.status || 500)
+            .json({ error: 'Create user schedule failed', detail: err.response?.data || err.message });
+    }
+});
+
+app.patch('/items/user_schedule/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data } = await api.patch(`/user_schedule/${id}`, req.body);
+        res.json(data);
+    } catch (err) {
+        res
+            .status(err.response?.status || 500)
+            .json({ error: 'Update user schedule failed', detail: err.response?.data || err.message });
+    }
+});
+
 /* ===== UPLOAD ENDPOINTS ===== */
 app.post('/upload/user', uploadUser.single('file'), (req, res) => {
     if (!req.file) return res.status(400).send('No file uploaded');

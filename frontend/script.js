@@ -203,6 +203,10 @@ async function initDashboard() {
     const editUserForm = $('#editUserForm');
     const cancelEditUserBtn = $('#cancelEditUserBtn');
 
+    const scheduleUserModal = $('#scheduleUserModal');
+    const scheduleUserForm = $('#scheduleUserForm');
+    const cancelScheduleUserBtn = $('#cancelScheduleUserBtn');
+
     // File inputs / previews
     wireImagePicker('newUserImage', 'newUserImagePreview');
     wireImagePicker('editUserImage', 'editUserImagePreview');
@@ -378,7 +382,11 @@ async function initDashboard() {
         <td class="text-sm">${u.user_department || 'N/A'}</td>
         <td class="text-sm">
           ${u.user_position || 'N/A'}
-          <a class="ml-2 text-blue-600 hover:underline" href="view_id.html?id=${encodeURIComponent(u.user_id)}" target="_blank">View ID</a>
+          <br/>
+          <div class="mt-2 flex gap-2">
+            <a class="text-blue-600 hover:underline text-xs" href="view_id.html?id=${encodeURIComponent(u.user_id)}" target="_blank">View ID</a>
+            <button class="text-blue-600 hover:underline text-xs btn-schedule" data-user-id="${u.user_id}">Set Schedule</button>
+          </div>
         </td>
       </tr>
     `).join('');
@@ -401,6 +409,14 @@ async function initDashboard() {
                 if (user) showEditUserModal(user);
             });
         });
+
+        $all('#usersTbody .btn-schedule').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation(); // prevent opening edit modal
+                const user = ALL_USERS.find(u => u.user_id == btn.dataset.userId);
+                if (user) showScheduleModal(user);
+            });
+        });
     }
 
     /* ---------- Modal helpers ---------- */
@@ -421,6 +437,7 @@ async function initDashboard() {
     });
     cancelNewUserBtn?.addEventListener('click', () => closeModal(newUserModal));
     cancelEditUserBtn?.addEventListener('click', () => closeModal(editUserModal));
+    cancelScheduleUserBtn?.addEventListener('click', () => closeModal(scheduleUserModal));
     logoutBtn?.addEventListener('click', async () => {
         try { await api('/logout', { method: 'POST' }); } catch {}
         window.location.href = 'index.html';
@@ -661,6 +678,99 @@ async function initDashboard() {
         } finally {
             isSubmittingEdit = false;
             if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Update User'; }
+        }
+    });
+
+    /* ---------- Schedule User ---------- */
+    async function showScheduleModal(user) {
+        scheduleUserForm.dataset.userId = user.user_id;
+        scheduleUserForm.dataset.scheduleId = ''; // Clear previous id
+        scheduleUserForm.reset();
+        $('#scheduleUserFormError').textContent = '';
+
+        try {
+            // Load existing schedule
+            const { data } = await api(`/items/user_schedule?filter[user_id][_eq]=${user.user_id}`);
+            const schedule = (data && data.length > 0) ? data[0] : null;
+
+            if (schedule) {
+                scheduleUserForm.dataset.scheduleId = schedule.id;
+                const workingDays = parseInt(schedule.working_days || 0, 10);
+                $all('#scheduleUserForm input[name="workday"]').forEach(cb => {
+                    cb.checked = (workingDays & parseInt(cb.value, 10)) !== 0;
+                });
+
+                const timeFields = ['work_start', 'work_end', 'lunch_start', 'lunch_end', 'break_start', 'break_end'];
+                timeFields.forEach(f => {
+                    if (schedule[f]) {
+                        // DB returns TIME often as HH:MM:SS or HH:MM
+                        const timeStr = String(schedule[f]).substring(0, 5); // Take HH:MM
+                        const el = document.querySelector(`#scheduleUserForm [name="${f}"]`);
+                        if (el) el.value = timeStr;
+                    }
+                });
+
+                if (schedule.grace_period !== undefined) {
+                    $('#schedGracePeriod').value = schedule.grace_period;
+                }
+                if (schedule.workdays_note) {
+                    $('#schedWorkdaysNote').value = schedule.workdays_note;
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load schedule', err);
+        }
+
+        showModal(scheduleUserModal);
+    }
+
+    let isSubmittingSchedule = false;
+    scheduleUserForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (isSubmittingSchedule) return;
+        isSubmittingSchedule = true;
+        
+        const submitBtn = document.querySelector('button[form="scheduleUserForm"]');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
+        $('#scheduleUserFormError').textContent = '';
+
+        const userId = scheduleUserForm.dataset.userId;
+        const scheduleId = scheduleUserForm.dataset.scheduleId;
+        const fd = new FormData(scheduleUserForm);
+
+        // Calculate working_days bitmask
+        let workingDays = 0;
+        $all('#scheduleUserForm input[name="workday"]:checked').forEach(cb => {
+            workingDays |= parseInt(cb.value, 10);
+        });
+
+        const body = {
+            user_id: parseInt(userId, 10),
+            working_days: workingDays,
+            work_start: fd.get('work_start'),
+            work_end: fd.get('work_end'),
+            lunch_start: fd.get('lunch_start') || '12:00:00',
+            lunch_end: fd.get('lunch_end') || '13:00:00',
+            break_start: fd.get('break_start') || '15:00:00',
+            break_end: fd.get('break_end') || '15:30:00',
+            grace_period: parseInt(fd.get('grace_period') || 5, 10),
+            workdays_note: fd.get('workdays_note') || null
+        };
+
+        try {
+            if (scheduleId) {
+                // Update
+                await api(`/items/user_schedule/${scheduleId}`, { method: 'PATCH', body: JSON.stringify(body) });
+            } else {
+                // Create
+                await api('/items/user_schedule', { method: 'POST', body: JSON.stringify(body) });
+            }
+            closeModal(scheduleUserModal);
+        } catch (err) {
+            $('#scheduleUserFormError').textContent = `Save failed: ${err.message}`;
+        } finally {
+            isSubmittingSchedule = false;
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save Schedule'; }
         }
     });
 
