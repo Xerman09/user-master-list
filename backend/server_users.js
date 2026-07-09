@@ -376,7 +376,9 @@ app.get('/items/user_schedule', async (req, res) => {
     try {
         const { filter } = req.query;
         const params = { limit: -1 };
-        if (filter) params.filter = filter;
+        if (filter) {
+            params.filter = typeof filter === 'object' ? JSON.stringify(filter) : filter;
+        }
         
         const { data } = await api.get('/user_schedule', { params });
         res.json(data);

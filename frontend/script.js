@@ -735,7 +735,8 @@ async function initDashboard() {
 
         try {
             // Load existing schedule
-            const { data } = await api(`/items/user_schedule?filter[user_id][_eq]=${userId}`);
+            const filterObj = { user_id: { _eq: userId } };
+            const { data } = await api(`/items/user_schedule?filter=${encodeURIComponent(JSON.stringify(filterObj))}`);
             const schedule = (data && data.length > 0) ? data[0] : null;
 
             if (schedule) {
@@ -790,15 +791,17 @@ async function initDashboard() {
             workingDays |= parseInt(cb.value, 10);
         });
 
+        const formatTime = (t) => t && t.length === 5 ? `${t}:00` : (t || null);
+
         const body = {
             user_id: parseInt(userId, 10),
             working_days: workingDays,
-            work_start: fd.get('work_start'),
-            work_end: fd.get('work_end'),
-            lunch_start: fd.get('lunch_start') || '12:00:00',
-            lunch_end: fd.get('lunch_end') || '13:00:00',
-            break_start: fd.get('break_start') || '15:00:00',
-            break_end: fd.get('break_end') || '15:30:00',
+            work_start: formatTime(fd.get('work_start')),
+            work_end: formatTime(fd.get('work_end')),
+            lunch_start: formatTime(fd.get('lunch_start')) || '12:00:00',
+            lunch_end: formatTime(fd.get('lunch_end')) || '13:00:00',
+            break_start: formatTime(fd.get('break_start')) || '15:00:00',
+            break_end: formatTime(fd.get('break_end')) || '15:30:00',
             grace_period: parseInt(fd.get('grace_period') || 5, 10),
             workdays_note: fd.get('workdays_note') || null,
             rest_day: fd.get('rest_day') || null
