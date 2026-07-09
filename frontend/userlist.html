@@ -262,8 +262,9 @@
         </header>
         <div class="p-6">
             <section>
-                <div class="flex border-b">
-                    <button class="tab-button active" data-tab="editProfile" role="tab">Profile</button>
+                <div class="flex border-b gap-2">
+                    <button type="button" class="tab-button active p-2 px-4 rounded-t-md" data-tab="editProfile" role="tab">Profile</button>
+                    <button type="button" class="tab-button p-2 px-4 rounded-t-md text-slate-600" data-tab="editSchedule" role="tab">Schedule</button>
                 </div>
                 <div class="pt-6">
                     <div id="editProfile" class="tab-content" role="tabpanel">
@@ -397,90 +398,94 @@
                             </div>
                         </form>
                     </div>
+                    
+                    <div id="editSchedule" class="tab-content hidden" role="tabpanel">
+                        <form id="scheduleUserForm" class="space-y-6" data-user-id="" data-schedule-id="">
+                            <div class="space-y-4">
+                                <h4 class="font-semibold text-slate-700 border-b pb-2">Working Days</h4>
+                                <div class="flex flex-wrap gap-4">
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="1" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Monday</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="2" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Tuesday</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="4" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Wednesday</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="8" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Thursday</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="16" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Friday</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="32" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Saturday</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="64" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Sunday</label>
+                                </div>
+                            </div>
+
+                            <div class="space-y-4">
+                                <h4 class="font-semibold text-slate-700 border-b pb-2">Hours</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="label">Work Start</label>
+                                        <input type="time" id="schedWorkStart" name="work_start" class="input" required>
+                                    </div>
+                                    <div>
+                                        <label class="label">Work End</label>
+                                        <input type="time" id="schedWorkEnd" name="work_end" class="input" required>
+                                    </div>
+                                    <div>
+                                        <label class="label">Lunch Start</label>
+                                        <input type="time" id="schedLunchStart" name="lunch_start" class="input" value="12:00">
+                                    </div>
+                                    <div>
+                                        <label class="label">Lunch End</label>
+                                        <input type="time" id="schedLunchEnd" name="lunch_end" class="input" value="13:00">
+                                    </div>
+                                    <div>
+                                        <label class="label">Break Start</label>
+                                        <input type="time" id="schedBreakStart" name="break_start" class="input" value="15:00">
+                                    </div>
+                                    <div>
+                                        <label class="label">Break End</label>
+                                        <input type="time" id="schedBreakEnd" name="break_end" class="input" value="15:30">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-4">
+                                <h4 class="font-semibold text-slate-700 border-b pb-2">Other</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="label">Grace Period (Minutes)</label>
+                                        <input type="number" id="schedGracePeriod" name="grace_period" class="input" value="5" min="0">
+                                    </div>
+                                    <div>
+                                        <label class="label">Workdays Note</label>
+                                        <input type="text" id="schedWorkdaysNote" name="workdays_note" class="input" placeholder="e.g. Mon-Fri">
+                                    </div>
+                                    <div>
+                                        <label class="label">Rest Day</label>
+                                        <select id="schedRestDay" name="rest_day" class="input">
+                                            <option value="">None</option>
+                                            <option value="Monday">Monday</option>
+                                            <option value="Tuesday">Tuesday</option>
+                                            <option value="Wednesday">Wednesday</option>
+                                            <option value="Thursday">Thursday</option>
+                                            <option value="Friday">Friday</option>
+                                            <option value="Saturday">Saturday</option>
+                                            <option value="Sunday">Sunday</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p id="scheduleUserFormError" class="text-sm text-red-600"></p>
+                        </form>
+                    </div>
                 </div>
             </section>
         </div>
         <footer class="flex justify-end gap-3 p-4 border-t border-slate-200 bg-slate-50">
             <button type="button" id="cancelEditUserBtn" class="vos-btn">Cancel</button>
-            <button type="submit" form="editUserForm" class="vos-btn-primary">Update User</button>
+            <button type="submit" form="editUserForm" id="editProfileSubmitBtn" class="vos-btn-primary">Update Profile</button>
+            <button type="submit" form="scheduleUserForm" id="editScheduleSubmitBtn" class="vos-btn-primary hidden">Save Schedule</button>
         </footer>
     </div>
 </div>
 
-<!-- ========== Schedule User Modal ========== -->
-<div id="scheduleUserModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
-    <div class="vos-modal max-w-2xl w-full">
-        <header class="vos-modal-header">
-            <h3 class="text-xl font-semibold text-slate-900">Set User Schedule</h3>
-        </header>
-        <div class="p-6">
-            <form id="scheduleUserForm" class="space-y-6" data-user-id="" data-schedule-id="">
-                <div class="space-y-4">
-                    <h4 class="font-semibold text-slate-700 border-b pb-2">Working Days</h4>
-                    <div class="flex flex-wrap gap-4">
-                        <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="1" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Monday</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="2" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Tuesday</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="4" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Wednesday</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="8" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Thursday</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="16" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Friday</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="32" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Saturday</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="64" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Sunday</label>
-                    </div>
-                </div>
 
-                <div class="space-y-4">
-                    <h4 class="font-semibold text-slate-700 border-b pb-2">Hours</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="label">Work Start</label>
-                            <input type="time" id="schedWorkStart" name="work_start" class="input" required>
-                        </div>
-                        <div>
-                            <label class="label">Work End</label>
-                            <input type="time" id="schedWorkEnd" name="work_end" class="input" required>
-                        </div>
-                        <div>
-                            <label class="label">Lunch Start</label>
-                            <input type="time" id="schedLunchStart" name="lunch_start" class="input" value="12:00">
-                        </div>
-                        <div>
-                            <label class="label">Lunch End</label>
-                            <input type="time" id="schedLunchEnd" name="lunch_end" class="input" value="13:00">
-                        </div>
-                        <div>
-                            <label class="label">Break Start</label>
-                            <input type="time" id="schedBreakStart" name="break_start" class="input" value="15:00">
-                        </div>
-                        <div>
-                            <label class="label">Break End</label>
-                            <input type="time" id="schedBreakEnd" name="break_end" class="input" value="15:30">
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="space-y-4">
-                    <h4 class="font-semibold text-slate-700 border-b pb-2">Other</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="label">Grace Period (Minutes)</label>
-                            <input type="number" id="schedGracePeriod" name="grace_period" class="input" value="5" min="0">
-                        </div>
-                        <div>
-                            <label class="label">Workdays Note</label>
-                            <input type="text" id="schedWorkdaysNote" name="workdays_note" class="input" placeholder="e.g. Mon-Fri">
-                        </div>
-                    </div>
-                </div>
-
-                <p id="scheduleUserFormError" class="text-sm text-red-600"></p>
-            </form>
-        </div>
-        <footer class="flex justify-end gap-3 p-4 border-t border-slate-200 bg-slate-50">
-            <button type="button" id="cancelScheduleUserBtn" class="vos-btn">Cancel</button>
-            <button type="submit" form="scheduleUserForm" class="vos-btn-primary">Save Schedule</button>
-        </footer>
-    </div>
-</div>
 
 <script src="script.js"></script>
 </body>

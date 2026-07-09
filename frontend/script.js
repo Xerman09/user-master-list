@@ -203,9 +203,7 @@ async function initDashboard() {
     const editUserForm = $('#editUserForm');
     const cancelEditUserBtn = $('#cancelEditUserBtn');
 
-    const scheduleUserModal = $('#scheduleUserModal');
     const scheduleUserForm = $('#scheduleUserForm');
-    const cancelScheduleUserBtn = $('#cancelScheduleUserBtn');
 
     // File inputs / previews
     wireImagePicker('newUserImage', 'newUserImagePreview');
@@ -414,7 +412,10 @@ async function initDashboard() {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation(); // prevent opening edit modal
                 const user = ALL_USERS.find(u => u.user_id == btn.dataset.userId);
-                if (user) showScheduleModal(user);
+                if (user) {
+                    showEditUserModal(user);
+                    activateEditTab('editSchedule');
+                }
             });
         });
     }
@@ -437,7 +438,47 @@ async function initDashboard() {
     });
     cancelNewUserBtn?.addEventListener('click', () => closeModal(newUserModal));
     cancelEditUserBtn?.addEventListener('click', () => closeModal(editUserModal));
-    cancelScheduleUserBtn?.addEventListener('click', () => closeModal(scheduleUserModal));
+    
+    // Tab switching for edit modal
+    const editTabBtns = $all('#editUserModal .tab-button');
+    const editTabContents = $all('#editUserModal .tab-content');
+    const editProfileSubmitBtn = $('#editProfileSubmitBtn');
+    const editScheduleSubmitBtn = $('#editScheduleSubmitBtn');
+
+    function activateEditTab(tabId) {
+        editTabBtns.forEach(btn => {
+            if (btn.dataset.tab === tabId) {
+                btn.classList.add('active', 'text-blue-600', 'border-blue-600');
+                btn.classList.remove('text-slate-600', 'border-transparent');
+            } else {
+                btn.classList.remove('active', 'text-blue-600', 'border-blue-600');
+                btn.classList.add('text-slate-600', 'border-transparent');
+            }
+        });
+        editTabContents.forEach(tc => {
+            if (tc.id === tabId) tc.classList.remove('hidden');
+            else tc.classList.add('hidden');
+        });
+        
+        if (tabId === 'editProfile') {
+            if(editProfileSubmitBtn) editProfileSubmitBtn.classList.remove('hidden');
+            if(editScheduleSubmitBtn) editScheduleSubmitBtn.classList.add('hidden');
+        } else if (tabId === 'editSchedule') {
+            if(editProfileSubmitBtn) editProfileSubmitBtn.classList.add('hidden');
+            if(editScheduleSubmitBtn) editScheduleSubmitBtn.classList.remove('hidden');
+            
+            // Load schedule data when tab is activated
+            const userId = editUserForm.dataset.userId;
+            if (userId && (!scheduleUserForm.dataset.userId || scheduleUserForm.dataset.userId !== userId)) {
+                loadScheduleData(userId);
+            }
+        }
+    }
+    
+    editTabBtns.forEach(btn => {
+        btn.addEventListener('click', () => activateEditTab(btn.dataset.tab));
+    });
+
     logoutBtn?.addEventListener('click', async () => {
         try { await api('/logout', { method: 'POST' }); } catch {}
         window.location.href = 'index.html';
@@ -591,6 +632,10 @@ async function initDashboard() {
             else { sigPrev.src = ''; sigPrev.classList.add('hidden'); }
         }
         if (editUserForm) editUserForm.dataset.userId = user.user_id;
+        
+        activateEditTab('editProfile');
+        scheduleUserForm.dataset.userId = ''; // Reset schedule data binding so it reloads if clicked
+
         showModal(editUserModal);
         if (editSigPad) editSigPad.clear();
     }
@@ -682,15 +727,15 @@ async function initDashboard() {
     });
 
     /* ---------- Schedule User ---------- */
-    async function showScheduleModal(user) {
-        scheduleUserForm.dataset.userId = user.user_id;
+    async function loadScheduleData(userId) {
+        scheduleUserForm.dataset.userId = userId;
         scheduleUserForm.dataset.scheduleId = ''; // Clear previous id
         scheduleUserForm.reset();
         $('#scheduleUserFormError').textContent = '';
 
         try {
             // Load existing schedule
-            const { data } = await api(`/items/user_schedule?filter[user_id][_eq]=${user.user_id}`);
+            const { data } = await api(`/items/user_schedule?filter[user_id][_eq]=${userId}`);
             const schedule = (data && data.length > 0) ? data[0] : null;
 
             if (schedule) {
@@ -716,12 +761,13 @@ async function initDashboard() {
                 if (schedule.workdays_note) {
                     $('#schedWorkdaysNote').value = schedule.workdays_note;
                 }
+                if (schedule.rest_day) {
+                    $('#schedRestDay').value = schedule.rest_day;
+                }
             }
         } catch (err) {
             console.error('Failed to load schedule', err);
         }
-
-        showModal(scheduleUserModal);
     }
 
     let isSubmittingSchedule = false;
@@ -754,7 +800,8 @@ async function initDashboard() {
             break_start: fd.get('break_start') || '15:00:00',
             break_end: fd.get('break_end') || '15:30:00',
             grace_period: parseInt(fd.get('grace_period') || 5, 10),
-            workdays_note: fd.get('workdays_note') || null
+            workdays_note: fd.get('workdays_note') || null,
+            rest_day: fd.get('rest_day') || null
         };
 
         try {
@@ -765,8 +812,11 @@ async function initDashboard() {
                 // Create
                 await api('/items/user_schedule', { method: 'POST', body: JSON.stringify(body) });
             }
-            closeModal(scheduleUserModal);
+            $('#scheduleUserFormError').className = 'text-sm text-green-600';
+            $('#scheduleUserFormError').textContent = 'Schedule saved successfully!';
+            setTimeout(() => { $('#scheduleUserFormError').textContent = ''; }, 3000);
         } catch (err) {
+            $('#scheduleUserFormError').className = 'text-sm text-red-600';
             $('#scheduleUserFormError').textContent = `Save failed: ${err.message}`;
         } finally {
             isSubmittingSchedule = false;
