@@ -185,6 +185,7 @@ async function initDashboard() {
     // NEW: status checkboxes
     const showActiveCb = $('#showActiveCheckbox');
     const showInactiveCb = $('#showInactiveCheckbox');
+    const departmentFilter = $('#departmentFilter');
 
     const resultInfo = $('#resultInfo');
     const pageIndicator = $('#pageIndicator');
@@ -222,13 +223,23 @@ async function initDashboard() {
     // LGU caches
     const citiesByProvince = new Map();
     const brgysByCity = new Map();
+    let departmentMap = {};
 
     async function loadDepartments() {
         const { data } = await api('/items/department');
+        departmentMap = {};
+        (data || []).forEach(d => {
+            departmentMap[d.department_id] = d.department_name;
+        });
         const opts = ['<option value="">Select a department</option>']
             .concat((data || []).map(d => `<option value="${d.department_id}">${d.department_name}</option>`));
         if (newDepartmentName)  newDepartmentName.innerHTML  = opts.join('');
         if (editDepartmentName) editDepartmentName.innerHTML = opts.join('');
+        if (departmentFilter) {
+            const filterOpts = ['<option value="">All</option>']
+                .concat((data || []).map(d => `<option value="${d.department_id}">${d.department_name}</option>`));
+            departmentFilter.innerHTML = filterOpts.join('');
+        }
     }
 
     async function loadEmploymentStatus() {
@@ -354,7 +365,12 @@ async function initDashboard() {
         const showActive   = showActiveCb?.checked ?? true;
         const showInactive = showInactiveCb?.checked ?? true;
 
+        const depFilter = departmentFilter ? departmentFilter.value : '';
+
         return ALL_USERS.filter(u => {
+            // --- department filter ---
+            if (depFilter && String(u.user_department) !== depFilter) return false;
+
             // --- status (active vs inactive) ---
             const isInactive = !!u.isDeleted;
             const isActive   = !isInactive;
@@ -404,7 +420,7 @@ async function initDashboard() {
           <div class="text-sm text-slate-500">${u.user_email || 'No email'}</div>
           <div class="text-xs text-slate-400">${[u.user_brgy, u.user_city, u.user_province].filter(Boolean).join(' • ') || ''}</div>
         </td>
-        <td class="text-sm">${u.user_department || 'N/A'}</td>
+        <td class="text-sm">${u.user_department ? (departmentMap[u.user_department] || u.user_department) : 'N/A'}</td>
         <td class="text-sm">
           ${u.user_position || 'N/A'}
           <br/>
@@ -915,6 +931,7 @@ async function initDashboard() {
     withoutEmailCb?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
     showActiveCb?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
     showInactiveCb?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
+    departmentFilter?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
 
     /* ---------- Boot ---------- */
     await Promise.all([loadDepartments(), loadLgu(), loadEmploymentStatus(), loadEmployeeType(), loadRoles()]);
