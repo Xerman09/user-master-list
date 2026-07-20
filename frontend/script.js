@@ -188,6 +188,63 @@ async function initDashboard() {
     const departmentFilter = $('#departmentFilter');
 
     const resultInfo = $('#resultInfo');
+    const statTotalUsers = $('#statTotalUsers');
+    const statTotalEmployees = $('#statTotalEmployees');
+    const statActive = $('#statActive');
+    const statInactive = $('#statInactive');
+    let empStatusChart = null;
+    let empTypeChart = null;
+
+    function initCharts() {
+        Chart.register(ChartDataLabels);
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right' },
+                datalabels: {
+                    color: '#fff',
+                    font: { weight: 'bold' },
+                    textAlign: 'center',
+                    formatter: (value, ctx) => {
+                        const total = ctx.dataset.data.reduce((acc, curr) => acc + curr, 0);
+                        const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                        return value > 0 ? `${value}\n(${percentage}%)` : '';
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.label || '';
+                            if (label) label += ': ';
+                            const value = context.parsed;
+                            const total = context.dataset.data.reduce((acc, curr) => acc + curr, 0);
+                            const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                            label += `${value} (${percentage}%)`;
+                            return label;
+                        }
+                    }
+                }
+            }
+        };
+
+        const ctxStatus = getEl('chartEmploymentStatus');
+        if (ctxStatus && !empStatusChart) {
+            empStatusChart = new Chart(ctxStatus, {
+                type: 'doughnut',
+                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'] }] },
+                options: chartOptions
+            });
+        }
+        const ctxType = getEl('chartEmployeeType');
+        if (ctxType && !empTypeChart) {
+            empTypeChart = new Chart(ctxType, {
+                type: 'doughnut',
+                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#8b5cf6', '#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6366f1'] }] },
+                options: chartOptions
+            });
+        }
+    }
     const pageIndicator = $('#pageIndicator');
     const prevBtn = $('#prevBtn');
     const nextBtn = $('#nextBtn');
@@ -242,18 +299,28 @@ async function initDashboard() {
         }
     }
 
+    let employmentStatusMap = {};
     async function loadEmploymentStatus() {
         try {
             const { data } = await api('/items/employment_status');
+            employmentStatusMap = {};
+            (data || []).forEach(d => {
+                employmentStatusMap[d.id] = d.name;
+            });
             const opts = ['<option value="">Select</option>'].concat((data || []).map(d => `<option value="${d.id}">${d.name}</option>`));
             const nel = getEl('newEmploymentStatus'); if (nel) nel.innerHTML = opts.join('');
             const eel = getEl('editEmploymentStatus'); if (eel) eel.innerHTML = opts.join('');
         } catch(e) {}
     }
 
+    let employeeTypeMap = {};
     async function loadEmployeeType() {
         try {
             const { data } = await api('/items/employee_type');
+            employeeTypeMap = {};
+            (data || []).forEach(d => {
+                employeeTypeMap[d.id] = d.type_name;
+            });
             const opts = ['<option value="">Select</option>'].concat((data || []).map(d => `<option value="${d.id}">${d.type_name}</option>`));
             const nel = getEl('newEmployeeType'); if (nel) nel.innerHTML = opts.join('');
             const eel = getEl('editEmployeeType'); if (eel) eel.innerHTML = opts.join('');
@@ -432,13 +499,49 @@ async function initDashboard() {
       </tr>
     `).join('');
 
+        // Update stats
+        if (statTotalUsers) statTotalUsers.textContent = total;
+        if (statTotalEmployees) statTotalEmployees.textContent = filtered.filter(u => u.is_employee).length;
+        if (statActive) statActive.textContent = filtered.filter(u => !u.isDeleted).length;
+        if (statInactive) statInactive.textContent = filtered.filter(u => !!u.isDeleted).length;
+
+        if (!empStatusChart || !empTypeChart) initCharts();
+
+        if (empStatusChart) {
+            const statusCounts = {};
+            filtered.forEach(u => {
+                if (u.employment_status_id) {
+                    statusCounts[u.employment_status_id] = (statusCounts[u.employment_status_id] || 0) + 1;
+                }
+            });
+            const statusIds = Object.keys(statusCounts);
+            empStatusChart.data.labels = statusIds.map(id => employmentStatusMap[id] || `Unknown (${id})`);
+            empStatusChart.data.datasets[0].data = statusIds.map(id => statusCounts[id]);
+            empStatusChart.update();
+        }
+
+        if (empTypeChart) {
+            const typeCounts = {};
+            filtered.forEach(u => {
+                if (u.employee_type_id) {
+                    typeCounts[u.employee_type_id] = (typeCounts[u.employee_type_id] || 0) + 1;
+                }
+            });
+            const typeIds = Object.keys(typeCounts);
+            empTypeChart.data.labels = typeIds.map(id => employeeTypeMap[id] || `Unknown (${id})`);
+            empTypeChart.data.datasets[0].data = typeIds.map(id => typeCounts[id]);
+            empTypeChart.update();
+        }
+
         if (total === 0) {
             resultInfo.textContent = 'No users found';
             pageIndicator.textContent = '0 / 0';
             prevBtn.disabled = true;
             nextBtn.disabled = true;
         } else {
-            resultInfo.textContent = `Showing ${start + 1}-${end} of ${total} users`;
+            const employeeCount = filtered.filter(u => u.is_employee).length;
+            const infoText = `Showing ${start + 1}-${end} of ${total} users (${employeeCount} employees)`;
+            resultInfo.textContent = infoText;
             pageIndicator.textContent = `${currentPage} / ${totalPages}`;
             prevBtn.disabled = currentPage <= 1;
             nextBtn.disabled = currentPage >= totalPages;
