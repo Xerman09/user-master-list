@@ -123,7 +123,7 @@
                 <!-- Personal -->
                 <div class="space-y-4">
                     <h4 class="font-semibold text-slate-700 border-b pb-2">Personal Information</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <label for="newFirstName" class="label">First Name</label>
                             <input type="text" id="newFirstName" name="firstName" class="input" required>
@@ -136,15 +136,78 @@
                             <label for="newLastName" class="label">Last Name</label>
                             <input type="text" id="newLastName" name="lastName" class="input" required>
                         </div>
+                        <div>
+                            <label for="newSuffixName" class="label">Suffix</label>
+                            <input type="text" id="newSuffixName" name="suffix_name" class="input">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label for="newNickname" class="label">Nickname</label>
+                            <input type="text" id="newNickname" name="nickname" class="input">
+                        </div>
+                        <div>
+                            <label for="newBirthday" class="label">Birthday</label>
+                            <input type="date" id="newBirthday" name="birthday" class="input">
+                        </div>
+                        <div>
+                            <label for="newPlaceOfBirth" class="label">Place of Birth</label>
+                            <input type="text" id="newPlaceOfBirth" name="place_of_birth" class="input">
+                        </div>
+                        <div>
+                            <label for="newGender" class="label">Gender</label>
+                            <select id="newGender" name="gender" class="input">
+                                <option value="">Select</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="newCivilStatus" class="label">Civil Status</label>
+                            <select id="newCivilStatus" name="civil_status" class="input">
+                                <option value="">Select</option>
+                                <option value="Single">Single</option>
+                                <option value="Married">Married</option>
+                                <option value="Widowed">Widowed</option>
+                                <option value="Divorced">Divorced</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="newNationality" class="label">Nationality</label>
+                            <input type="text" id="newNationality" name="nationality" class="input">
+                        </div>
+                        <div>
+                            <label for="newCitizenship" class="label">Citizenship</label>
+                            <input type="text" id="newCitizenship" name="citizenship" class="input">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="newBloodType" class="label">Blood Type</label>
+                            <select id="newBloodType" name="blood_type" class="input">
+                                <option value="">Select</option>
+                                <option value="A+">A+</option><option value="A-">A-</option>
+                                <option value="B+">B+</option><option value="B-">B-</option>
+                                <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                                <option value="O+">O+</option><option value="O-">O-</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="newReligion" class="label">Religion</label>
+                            <input type="text" id="newReligion" name="religion" class="input">
+                        </div>
+                        <div>
+                            <label for="newSpouseName" class="label">Spouse Name</label>
+                            <input type="text" id="newSpouseName" name="spouse_name" class="input">
+                        </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="newContact" class="label">Contact Number</label>
                             <input type="tel" id="newContact" name="contact" class="input">
-                        </div>
-                        <div>
-                            <label for="newBirthday" class="label">Birthday</label>
-                            <input type="date" id="newBirthday" name="birthday" class="input">
                         </div>
                     </div>
                     <div>
@@ -178,6 +241,29 @@
                         <div>
                             <label for="newDesignation" class="label">Designation</label>
                             <input type="text" id="newDesignation" name="designation" class="input">
+                        </div>
+                        <div>
+                            <label for="newEmploymentStatus" class="label">Employment Status</label>
+                            <select id="newEmploymentStatus" name="employment_status_id" class="input"></select>
+                        </div>
+                        <div>
+                            <label for="newEmployeeType" class="label">Employee Type</label>
+                            <select id="newEmployeeType" name="employee_type_id" class="input"></select>
+                        </div>
+                        <div>
+                            <label for="newRole" class="label">Role (Basic)</label>
+                            <select id="newRole" name="role" class="input">
+                                <option value="USER">USER</option>
+                                <option value="ADMIN">ADMIN</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="newRoleId" class="label">Role (Advanced)</label>
+                            <select id="newRoleId" name="role_id" class="input"></select>
+                        </div>
+                        <div>
+                            <label for="newUserTags" class="label">Tags</label>
+                            <input type="text" id="newUserTags" name="user_tags" class="input">
                         </div>
                         <div>
                             <label for="newEmail" class="label">Email</label>
@@ -269,57 +355,120 @@
                 <div class="pt-6">
                     <div id="editProfile" class="tab-content" role="tabpanel">
                         <form id="editUserForm" class="space-y-6" data-user-id="">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-                                <!-- Left -->
-                                <div class="space-y-4">
-                                    <h4 class="font-semibold text-slate-700 border-b pb-2">Personal Information</h4>
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div>
-                                            <label class="label">First Name</label>
-                                            <input type="text" id="editFirstName" name="firstName" class="input" required>
-                                        </div>
-                                        <div>
-                                            <label class="label">Middle Name</label>
-                                            <input type="text" id="editMiddleName" name="middleName" class="input">
-                                        </div>
-                                        <div>
-                                            <label class="label">Last Name</label>
-                                            <input type="text" id="editLastName" name="lastName" class="input" required>
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="label">Contact Number</label>
-                                            <input type="tel" id="editContact" name="contact" class="input">
-                                        </div>
-                                        <div>
-                                            <label class="label">Birthday</label>
-                                            <input type="date" id="editBirthday" name="birthday" class="input">
-                                        </div>
+                            <!-- Personal -->
+                            <div class="space-y-4">
+                                <h4 class="font-semibold text-slate-700 border-b pb-2">Personal Information</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <label class="label">First Name</label>
+                                        <input type="text" id="editFirstName" name="firstName" class="input" required>
                                     </div>
                                     <div>
-                                        <label class="label">Address</label>
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <select id="editProvince" name="province" class="input"></select>
-                                            <select id="editCity" name="city" class="input"></select>
-                                            <select id="editBarangay" name="barangay" class="input"></select>
-                                        </div>
+                                        <label class="label">Middle Name</label>
+                                        <input type="text" id="editMiddleName" name="middleName" class="input">
                                     </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="label">Emergency Contact Name</label>
-                                            <input type="text" id="editEmergencyName" name="emergency_contact_name" class="input">
-                                        </div>
-                                        <div>
-                                            <label class="label">Emergency Contact Number</label>
-                                            <input type="text" id="editEmergencyPhone" name="emergency_contact_number" class="input">
-                                        </div>
+                                    <div>
+                                        <label class="label">Last Name</label>
+                                        <input type="text" id="editLastName" name="lastName" class="input" required>
+                                    </div>
+                                    <div>
+                                        <label class="label">Suffix</label>
+                                        <input type="text" id="editSuffixName" name="suffix_name" class="input">
                                     </div>
                                 </div>
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <label class="label">Nickname</label>
+                                        <input type="text" id="editNickname" name="nickname" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">Birthday</label>
+                                        <input type="date" id="editBirthday" name="birthday" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">Place of Birth</label>
+                                        <input type="text" id="editPlaceOfBirth" name="place_of_birth" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">Gender</label>
+                                        <select id="editGender" name="gender" class="input">
+                                            <option value="">Select</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="label">Civil Status</label>
+                                        <select id="editCivilStatus" name="civil_status" class="input">
+                                            <option value="">Select</option>
+                                            <option value="Single">Single</option>
+                                            <option value="Married">Married</option>
+                                            <option value="Widowed">Widowed</option>
+                                            <option value="Divorced">Divorced</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="label">Nationality</label>
+                                        <input type="text" id="editNationality" name="nationality" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">Citizenship</label>
+                                        <input type="text" id="editCitizenship" name="citizenship" class="input">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="label">Blood Type</label>
+                                        <select id="editBloodType" name="blood_type" class="input">
+                                            <option value="">Select</option>
+                                            <option value="A+">A+</option><option value="A-">A-</option>
+                                            <option value="B+">B+</option><option value="B-">B-</option>
+                                            <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                                            <option value="O+">O+</option><option value="O-">O-</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="label">Religion</label>
+                                        <input type="text" id="editReligion" name="religion" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">Spouse Name</label>
+                                        <input type="text" id="editSpouseName" name="spouse_name" class="input">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="label">Contact Number</label>
+                                        <input type="tel" id="editContact" name="contact" class="input">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="label">Address</label>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <select id="editProvince" name="province" class="input"></select>
+                                        <select id="editCity" name="city" class="input"></select>
+                                        <select id="editBarangay" name="barangay" class="input"></select>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="label">Emergency Contact Name</label>
+                                        <input type="text" id="editEmergencyName" name="emergency_contact_name" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">Emergency Contact Number</label>
+                                        <input type="text" id="editEmergencyPhone" name="emergency_contact_number" class="input">
+                                    </div>
+                                </div>
+                            </div>
 
-                                <!-- Right -->
-                                <div class="space-y-4">
-                                    <h4 class="font-semibold text-slate-700 border-b pb-2">Work &amp; Account</h4>
+                            <!-- Work & Account -->
+                            <div class="space-y-4">
+                                <h4 class="font-semibold text-slate-700 border-b pb-2">Work &amp; Account</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label class="label">Department</label>
                                         <select id="editDepartmentName" name="department" class="input"></select>
@@ -327,6 +476,29 @@
                                     <div>
                                         <label class="label">Designation</label>
                                         <input type="text" id="editDesignation" name="designation" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">Employment Status</label>
+                                        <select id="editEmploymentStatus" name="employment_status_id" class="input"></select>
+                                    </div>
+                                    <div>
+                                        <label class="label">Employee Type</label>
+                                        <select id="editEmployeeType" name="employee_type_id" class="input"></select>
+                                    </div>
+                                    <div>
+                                        <label class="label">Role (Basic)</label>
+                                        <select id="editRole" name="role" class="input">
+                                            <option value="USER">USER</option>
+                                            <option value="ADMIN">ADMIN</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="label">Role (Advanced)</label>
+                                        <select id="editRoleId" name="role_id" class="input"></select>
+                                    </div>
+                                    <div>
+                                        <label class="label">Tags</label>
+                                        <input type="text" id="editUserTags" name="user_tags" class="input">
                                     </div>
                                     <div>
                                         <label class="label">Email</label>

@@ -231,6 +231,33 @@ async function initDashboard() {
         if (editDepartmentName) editDepartmentName.innerHTML = opts.join('');
     }
 
+    async function loadEmploymentStatus() {
+        try {
+            const { data } = await api('/items/employment_status');
+            const opts = ['<option value="">Select</option>'].concat((data || []).map(d => `<option value="${d.id}">${d.name}</option>`));
+            const nel = getEl('newEmploymentStatus'); if (nel) nel.innerHTML = opts.join('');
+            const eel = getEl('editEmploymentStatus'); if (eel) eel.innerHTML = opts.join('');
+        } catch(e) {}
+    }
+
+    async function loadEmployeeType() {
+        try {
+            const { data } = await api('/items/employee_type');
+            const opts = ['<option value="">Select</option>'].concat((data || []).map(d => `<option value="${d.id}">${d.type_name}</option>`));
+            const nel = getEl('newEmployeeType'); if (nel) nel.innerHTML = opts.join('');
+            const eel = getEl('editEmployeeType'); if (eel) eel.innerHTML = opts.join('');
+        } catch(e) {}
+    }
+
+    async function loadRoles() {
+        try {
+            const { data } = await api('/items/roles');
+            const opts = ['<option value="">Select</option>'].concat((data || []).map(d => `<option value="${d.id}">${d.name || d.id}</option>`));
+            const nel = getEl('newRoleId'); if (nel) nel.innerHTML = opts.join('');
+            const eel = getEl('editRoleId'); if (eel) eel.innerHTML = opts.join('');
+        } catch(e) {}
+    }
+
     async function loadLgu() {
         const [province, city, brgy] = await Promise.all([
             fetch('/data/province.json').then(r => r.json()),
@@ -517,6 +544,21 @@ async function initDashboard() {
             user_fname: fd.get('firstName') || null,
             user_mname: fd.get('middleName') || null,
             user_lname: fd.get('lastName') || null,
+            suffix_name: fd.get('suffix_name') || null,
+            nickname: fd.get('nickname') || null,
+            user_tags: fd.get('user_tags') || null,
+            gender: fd.get('gender') || null,
+            civil_status: fd.get('civil_status') || null,
+            nationality: fd.get('nationality') || null,
+            citizenship: fd.get('citizenship') || null,
+            place_of_birth: fd.get('place_of_birth') || null,
+            blood_type: fd.get('blood_type') || null,
+            religion: fd.get('religion') || null,
+            spouse_name: fd.get('spouse_name') || null,
+            employment_status_id: parseInt(fd.get('employment_status_id'), 10) || null,
+            employee_type_id: parseInt(fd.get('employee_type_id'), 10) || null,
+            role_id: parseInt(fd.get('role_id'), 10) || null,
+            role: fd.get('role') || 'USER',
             user_contact: fd.get('contact') || null,
             user_bday: fd.get('birthday') || null,
             user_province: pName, user_city: cName, user_brgy: bName,
@@ -561,8 +603,18 @@ async function initDashboard() {
         setVal('editFirstName', user.user_fname || '');
         setVal('editMiddleName', user.user_mname || '');
         setVal('editLastName', user.user_lname || '');
+        setVal('editSuffixName', user.suffix_name || '');
+        setVal('editNickname', user.nickname || '');
         setVal('editContact', user.user_contact || '');
         setVal('editBirthday', user.user_bday ? String(user.user_bday).split(' ')[0] : '');
+        setVal('editPlaceOfBirth', user.place_of_birth || '');
+        setSelect('editGender', user.gender || '');
+        setSelect('editCivilStatus', user.civil_status || '');
+        setVal('editNationality', user.nationality || '');
+        setVal('editCitizenship', user.citizenship || '');
+        setSelect('editBloodType', user.blood_type || '');
+        setVal('editReligion', user.religion || '');
+        setVal('editSpouseName', user.spouse_name || '');
 
         const pSel = getEl('editProvince');
         const cSel = getEl('editCity');
@@ -601,6 +653,11 @@ async function initDashboard() {
         }
 
         setSelect('editDepartmentName', user.user_department || '');
+        setSelect('editEmploymentStatus', user.employment_status_id || '');
+        setSelect('editEmployeeType', user.employee_type_id || '');
+        setSelect('editRole', user.role || 'USER');
+        setSelect('editRoleId', user.role_id || '');
+        setVal('editUserTags', user.user_tags || '');
         setVal('editDesignation', user.user_position || '');
         setVal('editEmail', user.user_email || '');
         const pw = getEl('editPassword'); if (pw) pw.value = '';
@@ -676,8 +733,19 @@ async function initDashboard() {
         if (nonEmpty(fd.get('firstName'))) body.user_fname = fd.get('firstName');
         if (nonEmpty(fd.get('middleName'))) body.user_mname = fd.get('middleName');
         if (nonEmpty(fd.get('lastName')))  body.user_lname = fd.get('lastName');
+        if (nonEmpty(fd.get('suffix_name'))) body.suffix_name = fd.get('suffix_name');
+        if (nonEmpty(fd.get('nickname'))) body.nickname = fd.get('nickname');
         if (nonEmpty(fd.get('contact')))   body.user_contact = fd.get('contact');
         if (nonEmpty(fd.get('birthday')))  body.user_bday = fd.get('birthday');
+        if (nonEmpty(fd.get('place_of_birth'))) body.place_of_birth = fd.get('place_of_birth');
+        if (nonEmpty(fd.get('gender'))) body.gender = fd.get('gender');
+        if (nonEmpty(fd.get('civil_status'))) body.civil_status = fd.get('civil_status');
+        if (nonEmpty(fd.get('nationality'))) body.nationality = fd.get('nationality');
+        if (nonEmpty(fd.get('citizenship'))) body.citizenship = fd.get('citizenship');
+        if (nonEmpty(fd.get('blood_type'))) body.blood_type = fd.get('blood_type');
+        if (nonEmpty(fd.get('religion'))) body.religion = fd.get('religion');
+        if (nonEmpty(fd.get('spouse_name'))) body.spouse_name = fd.get('spouse_name');
+        if (nonEmpty(fd.get('user_tags'))) body.user_tags = fd.get('user_tags');
 
         if (pCode) body.user_province = $('#editProvince option:checked')?.textContent || null;
         if (cCode) body.user_city     = $('#editCity option:checked')?.textContent || null;
@@ -685,6 +753,18 @@ async function initDashboard() {
 
         const dep = fd.get('department');
         if (nonEmpty(dep)) body.user_department = parseInt(dep, 10);
+        
+        const empStat = fd.get('employment_status_id');
+        if (nonEmpty(empStat)) body.employment_status_id = parseInt(empStat, 10);
+        
+        const empType = fd.get('employee_type_id');
+        if (nonEmpty(empType)) body.employee_type_id = parseInt(empType, 10);
+        
+        const rId = fd.get('role_id');
+        if (nonEmpty(rId)) body.role_id = parseInt(rId, 10);
+        
+        if (nonEmpty(fd.get('role'))) body.role = fd.get('role');
+
         if (nonEmpty(fd.get('designation'))) body.user_position = fd.get('designation');
         if (nonEmpty(fd.get('email')))       body.user_email = fd.get('email');
         if (nonEmpty(fd.get('password')))    body.user_password = fd.get('password');
@@ -837,7 +917,7 @@ async function initDashboard() {
     showInactiveCb?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
 
     /* ---------- Boot ---------- */
-    await Promise.all([loadDepartments(), loadLgu()]);
+    await Promise.all([loadDepartments(), loadLgu(), loadEmploymentStatus(), loadEmployeeType(), loadRoles()]);
     await loadUsers();
 }
 

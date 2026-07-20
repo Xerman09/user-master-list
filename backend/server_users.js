@@ -218,7 +218,9 @@ const STRING_FIELDS = new Set([
     'user_email','user_password','user_fname','user_mname','user_lname','user_contact',
     'user_province','user_city','user_brgy','user_position','user_dateOfHire','user_bday',
     'rf_id','user_tin','user_sss','user_philhealth','user_pagibig','user_image','signature',
-    'emergency_contact_name','emergency_contact_number','external_id','externalId','role_id'
+    'emergency_contact_name','emergency_contact_number','external_id','externalId',
+    'suffix_name','nickname','user_tags','gender','civil_status','nationality',
+    'citizenship','place_of_birth','blood_type','religion','spouse_name','role'
 ]);
 
 function sanitizeUserPayload(src, isPatch = false) {
@@ -232,7 +234,7 @@ function sanitizeUserPayload(src, isPatch = false) {
             } else {
                 out[k] = v == null ? null : String(v);
             }
-        } else if (k === 'user_department') {
+        } else if (['user_department', 'employment_status_id', 'employee_type_id', 'role_id'].includes(k)) {
             if (isPatch) {
                 if (v === undefined || v === null || v === '') continue;
                 const n = Number(v);
@@ -300,6 +302,36 @@ app.get('/items/department', async (_req, res) => {
     }
 });
 
+/* ===== EMPLOYMENT STATUS ===== */
+app.get('/items/employment_status', async (_req, res) => {
+    try {
+        const { data } = await api.get('/employment_status?limit=-1');
+        res.json(data);
+    } catch (err) {
+        res.status(err.response?.status || 502).json({ error: 'Employment status list failed', detail: err.response?.data || err.message });
+    }
+});
+
+/* ===== EMPLOYEE TYPE ===== */
+app.get('/items/employee_type', async (_req, res) => {
+    try {
+        const { data } = await api.get('/employee_type?limit=-1');
+        res.json(data);
+    } catch (err) {
+        res.status(err.response?.status || 502).json({ error: 'Employee type list failed', detail: err.response?.data || err.message });
+    }
+});
+
+/* ===== ROLES ===== */
+app.get('/items/roles', async (_req, res) => {
+    try {
+        const { data } = await api.get('/roles?limit=-1');
+        res.json(data);
+    } catch (err) {
+        res.status(err.response?.status || 502).json({ error: 'Roles list failed', detail: err.response?.data || err.message });
+    }
+});
+
 /* ===== USERS ===== */
 /** FIX: include both is_deleted and isDeleted in requested FIELDS (some schemas differ) */
 const FIELDS = [
@@ -308,8 +340,10 @@ const FIELDS = [
     'user_position','user_dateOfHire','user_bday','rf_id','user_image','signature','isAdmin',
     'user_sss','user_philhealth','user_tin','user_pagibig','emergency_contact_name','emergency_contact_number',
     'external_id','externalId','role_id','biometric_id','nickname',
-    'is_deleted','isDeleted','is_employee',  // FIX: ensure status is fetched if present in collection
-    'updateAt','update_at'
+    'is_deleted','isDeleted','is_employee',
+    'updateAt','update_at',
+    'suffix_name','employment_status_id','user_tags','gender','civil_status','nationality',
+    'citizenship','place_of_birth','blood_type','religion','spouse_name','role','employee_type_id'
 ].join(',');
 
 app.get('/items/user', async (_req, res) => {
