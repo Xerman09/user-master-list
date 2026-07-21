@@ -26,7 +26,22 @@ jobs:
               echo "------------------------------------------"
               FOLDER_NAME=$(basename "$sys_dir")
               COMPANY_NAME=$(echo "$FOLDER_NAME" | sed 's/_system//')
-              PM2_NAME="${COMPANY_NAME}-user-master-list"
+              
+              case "$COMPANY_NAME" in
+                ace_solar)
+                  PM2_NAME="ace-solar-masterlist"
+                  ;;
+                menza)
+                  PM2_NAME="menza-users-masterlist"
+                  ;;
+                rsm)
+                  PM2_NAME="rsm-user-backend"
+                  ;;
+                *)
+                  FORMATTED_NAME=$(echo "$COMPANY_NAME" | sed 's/_/-/g')
+                  PM2_NAME="${FORMATTED_NAME}-user-masterlist"
+                  ;;
+              esac
               
               echo "Processing: $APP_PATH"
               
