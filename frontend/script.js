@@ -192,11 +192,40 @@ async function initDashboard() {
     const statTotalEmployees = $('#statTotalEmployees');
     const statActive = $('#statActive');
     const statInactive = $('#statInactive');
+    const statTotalDepartments = $('#statTotalDepartments');
     let empStatusChart = null;
     let empTypeChart = null;
+    let deptChart = null;
 
     function initCharts() {
-        Chart.register(ChartDataLabels);
+        const centerTextPlugin = {
+            id: 'centerText',
+            beforeDraw: function(chart) {
+                if (chart.config.type !== 'doughnut') return;
+                const ctx = chart.ctx;
+                const meta = chart.getDatasetMeta(0);
+                if (!meta.data || !meta.data.length) return;
+                
+                const centerX = meta.data[0].x;
+                const centerY = meta.data[0].y;
+                
+                const data = chart.data.datasets[0].data;
+                const total = data.reduce((a, b) => a + b, 0);
+                if (total === 0) return;
+                
+                ctx.restore();
+                const fontSize = (chart.height / 114).toFixed(2);
+                ctx.font = `bold ${fontSize}em sans-serif`;
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#334155'; // text-slate-700
+                
+                const text = total.toString();
+                const textWidth = ctx.measureText(text).width;
+                ctx.fillText(text, centerX - textWidth / 2, centerY);
+                ctx.save();
+            }
+        };
+        Chart.register(ChartDataLabels, centerTextPlugin);
         const chartOptions = {
             responsive: true,
             maintainAspectRatio: false,
@@ -209,6 +238,7 @@ async function initDashboard() {
                     formatter: (value, ctx) => {
                         const total = ctx.dataset.data.reduce((acc, curr) => acc + curr, 0);
                         const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                        if (percentage < 5) return '';
                         return value > 0 ? `${value}\n(${percentage}%)` : '';
                     }
                 },
@@ -228,6 +258,21 @@ async function initDashboard() {
             }
         };
 
+        const deptChartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { 
+                    position: 'bottom',
+                    labels: { boxWidth: 10, font: { size: 10 } }
+                },
+                datalabels: {
+                    display: false
+                },
+                tooltip: chartOptions.plugins.tooltip
+            }
+        };
+
         const ctxStatus = getEl('chartEmploymentStatus');
         if (ctxStatus && !empStatusChart) {
             empStatusChart = new Chart(ctxStatus, {
@@ -242,6 +287,14 @@ async function initDashboard() {
                 type: 'doughnut',
                 data: { labels: [], datasets: [{ data: [], backgroundColor: ['#8b5cf6', '#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6366f1'] }] },
                 options: chartOptions
+            });
+        }
+        const ctxDept = getEl('chartDepartment');
+        if (ctxDept && !deptChart) {
+            deptChart = new Chart(ctxDept, {
+                type: 'doughnut',
+                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6', '#84cc16', '#eab308', '#f97316', '#a855f7', '#ec4899', '#64748b'] }] },
+                options: deptChartOptions
             });
         }
     }
@@ -288,6 +341,10 @@ async function initDashboard() {
         (data || []).forEach(d => {
             departmentMap[d.department_id] = d.department_name;
         });
+        
+        // Update Total Departments card if it exists
+        const deptCard = document.getElementById('statTotalDepartments');
+        if (deptCard) deptCard.textContent = (data || []).length;
         const opts = ['<option value="">Select a department</option>']
             .concat((data || []).map(d => `<option value="${d.department_id}">${d.department_name}</option>`));
         if (newDepartmentName)  newDepartmentName.innerHTML  = opts.join('');
@@ -501,36 +558,65 @@ async function initDashboard() {
 
         // Update stats
         if (statTotalUsers) statTotalUsers.textContent = total;
-        if (statTotalEmployees) statTotalEmployees.textContent = filtered.filter(u => u.is_employee).length;
+        if (statTotalEmployees) statTotalEmployees.textContent = filtered.filter(u => u.is_employee && !u.isDeleted).length;
         if (statActive) statActive.textContent = filtered.filter(u => !u.isDeleted).length;
         if (statInactive) statInactive.textContent = filtered.filter(u => !!u.isDeleted).length;
 
-        if (!empStatusChart || !empTypeChart) initCharts();
+        if (!empStatusChart || !empTypeChart || !deptChart) initCharts();
 
-        if (empStatusChart) {
-            const statusCounts = {};
-            filtered.forEach(u => {
-                if (u.employment_status_id) {
-                    statusCounts[u.employment_status_id] = (statusCounts[u.employment_status_id] || 0) + 1;
-                }
-            });
+        if (empStatusChart || empTypeChart || deptChart) {
+            const activeEmployees = filtered.filter(u => !u.isDeleted && u.is_employee);
+
+            if (empStatusChart) {
+                const statusCounts = {};
+                activeEmployees.forEach(u => {
+                    if (u.employment_status_id) {
+                        statusCounts[u.employment_status_id] = (statusCounts[u.employment_status_id] || 0) + 1;
+                    }
+                });
             const statusIds = Object.keys(statusCounts);
-            empStatusChart.data.labels = statusIds.map(id => employmentStatusMap[id] || `Unknown (${id})`);
+            const statusTotal = statusIds.reduce((sum, id) => sum + statusCounts[id], 0);
+            const titleEl = getEl('chartEmploymentStatusTitle');
+            if (titleEl) titleEl.textContent = `Employment Status (${statusTotal})`;
+
+            empStatusChart.data.labels = statusIds.map(id => `${employmentStatusMap[id] || `Unknown (${id})`} (${statusCounts[id]})`);
             empStatusChart.data.datasets[0].data = statusIds.map(id => statusCounts[id]);
             empStatusChart.update();
         }
 
         if (empTypeChart) {
             const typeCounts = {};
-            filtered.forEach(u => {
+            activeEmployees.forEach(u => {
                 if (u.employee_type_id) {
                     typeCounts[u.employee_type_id] = (typeCounts[u.employee_type_id] || 0) + 1;
                 }
             });
             const typeIds = Object.keys(typeCounts);
-            empTypeChart.data.labels = typeIds.map(id => employeeTypeMap[id] || `Unknown (${id})`);
+            const typeTotal = typeIds.reduce((sum, id) => sum + typeCounts[id], 0);
+            const titleEl = getEl('chartEmployeeTypeTitle');
+            if (titleEl) titleEl.textContent = `Employment Type (${typeTotal})`;
+
+            empTypeChart.data.labels = typeIds.map(id => `${employeeTypeMap[id] || `Unknown (${id})`} (${typeCounts[id]})`);
             empTypeChart.data.datasets[0].data = typeIds.map(id => typeCounts[id]);
             empTypeChart.update();
+        }
+
+        if (deptChart) {
+            const deptCounts = {};
+            activeEmployees.forEach(u => {
+                if (u.user_department) {
+                    deptCounts[u.user_department] = (deptCounts[u.user_department] || 0) + 1;
+                }
+            });
+            const deptIds = Object.keys(deptCounts);
+            const deptTotal = deptIds.reduce((sum, id) => sum + deptCounts[id], 0);
+            const titleEl = getEl('chartDepartmentTitle');
+            if (titleEl) titleEl.textContent = `Department (${deptTotal})`;
+
+            deptChart.data.labels = deptIds.map(id => `${departmentMap[id] || `Unknown (${id})`} (${deptCounts[id]})`);
+            deptChart.data.datasets[0].data = deptIds.map(id => deptCounts[id]);
+            deptChart.update();
+        }
         }
 
         if (total === 0) {
@@ -539,8 +625,8 @@ async function initDashboard() {
             prevBtn.disabled = true;
             nextBtn.disabled = true;
         } else {
-            const employeeCount = filtered.filter(u => u.is_employee).length;
-            const infoText = `Showing ${start + 1}-${end} of ${total} users (${employeeCount} employees)`;
+            const employeeCount = filtered.filter(u => u.is_employee && !u.isDeleted).length;
+            const infoText = `Showing ${start + 1}-${end} of ${total} users (${employeeCount} active employees)`;
             resultInfo.textContent = infoText;
             pageIndicator.textContent = `${currentPage} / ${totalPages}`;
             prevBtn.disabled = currentPage <= 1;

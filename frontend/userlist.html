@@ -41,40 +41,52 @@
         </div>
 
         <!-- Graphical Dashboard Stats -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
-            <!-- Left Side: Number Metrics -->
-            <div class="lg:col-span-4 grid grid-cols-2 gap-4">
-                <div class="vos-card p-4 flex flex-col justify-center text-center">
-                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Users</span>
-                    <span class="text-3xl font-bold text-slate-900 mt-1" id="statTotalUsers">0</span>
-                </div>
-                <div class="vos-card p-4 flex flex-col justify-center text-center">
-                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Employees</span>
-                    <span class="text-3xl font-bold text-slate-900 mt-1" id="statTotalEmployees">0</span>
-                </div>
-                <div class="vos-card p-4 flex flex-col justify-center text-center">
-                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active</span>
-                    <span class="text-3xl font-bold text-green-600 mt-1" id="statActive">0</span>
-                </div>
-                <div class="vos-card p-4 flex flex-col justify-center text-center">
-                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Inactive</span>
-                    <span class="text-3xl font-bold text-red-600 mt-1" id="statInactive">0</span>
-                </div>
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div class="vos-card p-4 flex flex-col justify-center text-center">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Users</span>
+                <span class="text-3xl font-bold text-slate-900 mt-1" id="statTotalUsers">0</span>
             </div>
+            <div class="vos-card p-4 flex flex-col justify-center text-center">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Employees</span>
+                <span class="text-3xl font-bold text-slate-900 mt-1" id="statTotalEmployees">0</span>
+            </div>
+            <div class="vos-card p-4 flex flex-col justify-center text-center">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active</span>
+                <span class="text-3xl font-bold text-green-600 mt-1" id="statActive">0</span>
+            </div>
+            <div class="vos-card p-4 flex flex-col justify-center text-center">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Inactive</span>
+                <span class="text-3xl font-bold text-red-600 mt-1" id="statInactive">0</span>
+            </div>
+            <div class="vos-card p-4 flex flex-col justify-center text-center">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Departments</span>
+                <span class="text-3xl font-bold text-slate-900 mt-1" id="statTotalDepartments">0</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
 
             <!-- Middle: Employment Status Chart -->
             <div class="lg:col-span-4 vos-card p-4 flex flex-col items-center">
-                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Employment Status</h3>
-                <div class="relative w-full h-48 flex justify-center">
+                <h3 id="chartEmploymentStatusTitle" class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Employment Status</h3>
+                <div class="relative w-full h-64 flex justify-center">
                     <canvas id="chartEmploymentStatus"></canvas>
                 </div>
             </div>
 
             <!-- Right: Employment Type Chart -->
             <div class="lg:col-span-4 vos-card p-4 flex flex-col items-center">
-                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Employment Type</h3>
-                <div class="relative w-full h-48 flex justify-center">
+                <h3 id="chartEmployeeTypeTitle" class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Employment Type</h3>
+                <div class="relative w-full h-64 flex justify-center">
                     <canvas id="chartEmployeeType"></canvas>
+                </div>
+            </div>
+
+            <!-- Far Right: Department Chart -->
+            <div class="lg:col-span-4 vos-card p-4 flex flex-col items-center">
+                <h3 id="chartDepartmentTitle" class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Department</h3>
+                <div class="relative w-full h-64 flex justify-center">
+                    <canvas id="chartDepartment"></canvas>
                 </div>
             </div>
         </div>
