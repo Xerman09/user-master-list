@@ -186,6 +186,7 @@ async function initDashboard() {
     const showActiveCb = $('#showActiveCheckbox');
     const showInactiveCb = $('#showInactiveCheckbox');
     const departmentFilter = $('#departmentFilter');
+    const employeeFilter = $('#employeeFilter');
 
     const resultInfo = $('#resultInfo');
     const statTotalUsers = $('#statTotalUsers');
@@ -487,11 +488,15 @@ async function initDashboard() {
 
         // Status filters
         const showActive   = showActiveCb?.checked ?? true;
-        const showInactive = showInactiveCb?.checked ?? true;
+        const showInactive = showInactiveCb?.checked ?? false;
 
         const depFilter = departmentFilter ? departmentFilter.value : '';
+        const empFilter = employeeFilter ? employeeFilter.value : 'employee_only';
 
         return ALL_USERS.filter(u => {
+            // --- employee filter ---
+            if (empFilter === 'employee_only' && !u.is_employee) return false;
+
             // --- department filter ---
             if (depFilter && String(u.user_department) !== depFilter) return false;
 
@@ -1121,6 +1126,7 @@ async function initDashboard() {
     showActiveCb?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
     showInactiveCb?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
     departmentFilter?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
+    employeeFilter?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
 
     /* ---------- Boot ---------- */
     await Promise.all([loadDepartments(), loadLgu(), loadEmploymentStatus(), loadEmployeeType(), loadRoles()]);

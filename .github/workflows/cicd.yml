@@ -16,7 +16,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Distribute, Build, and Restart
+      - name: Distribute and Build
         run: |
           BASE_DIR="/home/vertex-server-2/system"
           
@@ -29,22 +29,6 @@ jobs:
               FOLDER_NAME=$(basename "$sys_dir")
               COMPANY_NAME=$(echo "$FOLDER_NAME" | sed 's/_system//')
               
-              case "$COMPANY_NAME" in
-                ace_solar)
-                  PM2_NAME="ace-solar-masterlist"
-                  ;;
-                menza)
-                  PM2_NAME="menza-users-masterlist"
-                  ;;
-                rsm)
-                  PM2_NAME="rsm-user-backend"
-                  ;;
-                *)
-                  FORMATTED_NAME=$(echo "$COMPANY_NAME" | sed 's/_/-/g')
-                  PM2_NAME="${FORMATTED_NAME}-user-masterlist"
-                  ;;
-              esac
-              
               echo "Processing: $APP_PATH"
               
               # 2. Sync source code but EXCLUDE package.json and .env
@@ -53,21 +37,16 @@ jobs:
                 --exclude='node_modules' \
                 --exclude='.git' \
                 --exclude='package.json' \
-                --exclude='backend/package.json' \
                 --exclude='.env' \
-                --exclude='backend/.env' \
                 ./ "$APP_PATH/"
               
-              # 3. Build and Restart
+              # 3. Build (if needed)
               cd "$APP_PATH"
               
               # No build step needed for vanilla JS/HTML frontend
-              
-              # 4. Restart PM2 process
-              pm2 restart "$PM2_NAME" || echo "Warning: PM2 process '$PM2_NAME' not found."
               
               # Return to root for next loop
               cd $GITHUB_WORKSPACE
             fi
           done
-          echo "Deployment complete (package.json and .env preserved)!"
+          echo "Deployment complete!"

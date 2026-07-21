@@ -130,7 +130,7 @@
                                 <span class="text-sm">Active</span>
                             </label>
                             <label class="flex items-center gap-2">
-                                <input id="showInactiveCheckbox" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" checked />
+                                <input id="showInactiveCheckbox" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                                 <span class="text-sm">Inactive</span>
                             </label>
                         </div>
@@ -140,6 +140,14 @@
                         <label class="label">Department</label>
                         <select id="departmentFilter" class="input mt-1">
                             <option value="">All</option>
+                        </select>
+                    </div>
+
+                    <div class="md:col-span-3">
+                        <label class="label">User Type</label>
+                        <select id="employeeFilter" class="input mt-1">
+                            <option value="employee_only" selected>Employees Only</option>
+                            <option value="all">All Users</option>
                         </select>
                     </div>
 
