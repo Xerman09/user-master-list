@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Department Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="vos.css" />
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+    </style>
+</head>
+<body class="text-gray-800 bg-slate-50">
+
+<header class="vos-header">
+    <div class="vos-header-inner flex items-center justify-between">
+        <div class="vos-brand text-lg" id="brandName">VERTEX</div>
+        <div class="flex items-center gap-4">
+            <a href="userlist.html" class="text-sm font-semibold text-slate-700 hover:text-blue-600 px-3 py-2 rounded-md hover:bg-slate-100 transition-colors">Users</a>
+            <a href="department.html" class="text-sm font-semibold text-blue-600 px-3 py-2 rounded-md bg-blue-50 transition-colors">Departments</a>
+        </div>
+    </div>
+</header>
+
+<main class="mx-auto max-w-6xl px-4 py-8">
+    <div class="flex flex-col gap-4">
+        <div class="flex items-center justify-between mb-4">
+            <h1 class="text-3xl font-bold tracking-tight text-slate-900">Departments</h1>
+            <button onclick="openAddModal()" class="vos-btn-primary">Add Department</button>
+        </div>
+
+        <div class="vos-card overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="vos-table w-full">
+                    <thead class="bg-slate-50">
+                    <tr>
+                        <th class="py-3 px-5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-16">ID</th>
+                        <th class="py-3 px-5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Department Name</th>
+                        <th class="py-3 px-5 text-right text-xs font-medium text-slate-500 uppercase tracking-wider w-24">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="deptTbody" class="divide-y divide-slate-200">
+                        <tr><td colspan="3" class="p-4 text-center text-slate-500">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Modal -->
+<div id="deptModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden bg-slate-900/50 backdrop-blur-sm">
+    <div class="vos-modal max-w-lg w-full bg-white rounded-xl shadow-xl overflow-hidden">
+        <header class="vos-modal-header p-5 border-b flex justify-between items-center bg-slate-50">
+            <h3 class="text-xl font-semibold text-slate-900" id="modalTitle">Add Department</h3>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600">&times;</button>
+        </header>
+        <div class="p-6">
+            <form id="deptForm" class="space-y-4">
+                <input type="hidden" id="deptId">
+                <div>
+                    <label for="deptName" class="label text-sm font-medium text-slate-700 block mb-1">Department Name</label>
+                    <input type="text" id="deptName" class="input w-full border-slate-300 rounded-md shadow-sm" required>
+                </div>
+                <div id="formError" class="text-red-500 text-sm hidden"></div>
+            </form>
+        </div>
+        <footer class="vos-modal-footer p-4 border-t bg-slate-50 flex justify-end gap-2">
+            <button type="button" onclick="closeModal()" class="vos-btn px-4 py-2 border rounded-md hover:bg-slate-100">Cancel</button>
+            <button type="button" onclick="saveDepartment()" class="vos-btn-primary px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="saveBtn">Save</button>
+        </footer>
+    </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+    const deptTbody = document.getElementById('deptTbody');
+    const deptModal = document.getElementById('deptModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const deptForm = document.getElementById('deptForm');
+    const deptId = document.getElementById('deptId');
+    const deptName = document.getElementById('deptName');
+    const formError = document.getElementById('formError');
+    const saveBtn = document.getElementById('saveBtn');
+
+    let departments = [];
+
+    async function loadDepts() {
+        try {
+            const res = await fetch('/items/department');
+            if (!res.ok) throw new Error('Failed to load');
+            const result = await res.json();
+            departments = result.data || result || [];
+            renderDepts();
+        } catch (e) {
+            deptTbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500">Error loading departments</td></tr>`;
+        }
+    }
+
+    function renderDepts() {
+        deptTbody.innerHTML = '';
+        if (departments.length === 0) {
+            deptTbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-500">No departments found.</td></tr>`;
+            return;
+        }
+
+        departments.forEach(d => {
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-slate-50 transition-colors";
+            tr.innerHTML = `
+                <td class="py-3 px-5 text-sm text-slate-600">${d.department_id || d.id || '-'}</td>
+                <td class="py-3 px-5 text-sm font-medium text-slate-900">${d.department_name}</td>
+                <td class="py-3 px-5 text-right">
+                    <button onclick="openEditModal(${d.department_id || d.id})" class="text-blue-600 hover:text-blue-800 font-medium text-sm">Edit</button>
+                </td>
+            `;
+            deptTbody.appendChild(tr);
+        });
+    }
+
+    function openAddModal() {
+        deptForm.reset();
+        deptId.value = '';
+        modalTitle.textContent = 'Add Department';
+        formError.classList.add('hidden');
+        deptModal.classList.remove('hidden');
+    }
+
+    function openEditModal(id) {
+        const d = departments.find(x => (x.department_id || x.id) == id);
+        if (!d) return;
+        deptForm.reset();
+        deptId.value = d.department_id || d.id;
+        deptName.value = d.department_name || '';
+        modalTitle.textContent = 'Edit Department';
+        formError.classList.add('hidden');
+        deptModal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+        deptModal.classList.add('hidden');
+    }
+
+    async function saveDepartment() {
+        if (!deptForm.checkValidity()) {
+            deptForm.reportValidity();
+            return;
+        }
+
+        const id = deptId.value;
+        const payload = { department_name: deptName.value.trim() };
+        
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+        formError.classList.add('hidden');
+
+        try {
+            let res;
+            if (id) {
+                // Update
+                res = await fetch(`/items/department/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                // Create
+                res = await fetch('/items/department', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
+
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(errText || 'Failed to save');
+            }
+
+            closeModal();
+            await loadDepts();
+        } catch (e) {
+            formError.textContent = e.message;
+            formError.classList.remove('hidden');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+        }
+    }
+
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDepts();
+        
+        // Setup brand name if initConfig exists in script.js
+        if (typeof COMPANY_NAME !== 'undefined') {
+            document.getElementById('brandName').textContent = COMPANY_NAME;
+        }
+    });
+</script>
+</body>
+</html>

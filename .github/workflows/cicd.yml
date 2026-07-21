@@ -1,0 +1,56 @@
+name: User Master List CI/CD (Multi-Build & PM2)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Distribute, Build, and Restart
+        run: |
+          BASE_DIR="/home/vertex-server-2/system"
+          
+          # 1. Loop through all directories ending in _system
+          for sys_dir in "$BASE_DIR"/*_system; do
+            APP_PATH="$sys_dir/user-master-list"
+            
+            if [ -d "$APP_PATH" ]; then
+              echo "------------------------------------------"
+              FOLDER_NAME=$(basename "$sys_dir")
+              COMPANY_NAME=$(echo "$FOLDER_NAME" | sed 's/_system//')
+              PM2_NAME="${COMPANY_NAME}-user-master-list"
+              
+              echo "Processing: $APP_PATH"
+              
+              # 2. Sync source code but EXCLUDE package.json and .env
+              # This keeps your 'start' commands and secrets safe on the server
+              rsync -a --delete \
+                --exclude='node_modules' \
+                --exclude='.git' \
+                --exclude='package.json' \
+                --exclude='backend/package.json' \
+                --exclude='.env' \
+                --exclude='backend/.env' \
+                ./ "$APP_PATH/"
+              
+              # 3. Build and Restart
+              cd "$APP_PATH"
+              
+              # No build step needed for vanilla JS/HTML frontend
+              
+              # 4. Restart PM2 process
+              pm2 restart "$PM2_NAME" || echo "Warning: PM2 process '$PM2_NAME' not found."
+              
+              # Return to root for next loop
+              cd $GITHUB_WORKSPACE
+            fi
+          done
+          echo "Deployment complete (package.json and .env preserved)!"

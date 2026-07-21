@@ -302,6 +302,25 @@ app.get('/items/department', async (_req, res) => {
     }
 });
 
+app.post('/items/department', async (req, res) => {
+    try {
+        const { data } = await api.post('/department', req.body);
+        res.json(data);
+    } catch (err) {
+        res.status(err.response?.status || 500).json({ error: 'Create department failed', detail: err.response?.data || err.message });
+    }
+});
+
+app.patch('/items/department/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data } = await api.patch(`/department/${id}`, req.body);
+        res.json(data);
+    } catch (err) {
+        res.status(err.response?.status || 500).json({ error: 'Update department failed', detail: err.response?.data || err.message });
+    }
+});
+
 /* ===== EMPLOYMENT STATUS ===== */
 app.get('/items/employment_status', async (_req, res) => {
     try {
