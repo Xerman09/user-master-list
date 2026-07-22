@@ -73,6 +73,25 @@
     </div>
 </div>
 
+<!-- Delete Modal -->
+<div id="deleteModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden bg-slate-900/50 backdrop-blur-sm">
+    <div class="vos-modal max-w-sm w-full bg-white rounded-xl shadow-xl overflow-hidden">
+        <header class="vos-modal-header p-5 border-b flex justify-between items-center bg-slate-50">
+            <h3 class="text-xl font-semibold text-slate-900">Delete Department</h3>
+            <button onclick="closeDeleteModal()" class="text-slate-400 hover:text-slate-600">&times;</button>
+        </header>
+        <div class="p-6">
+            <p class="text-slate-700 text-sm">Are you sure you want to delete this department?</p>
+            <input type="hidden" id="deleteDeptId">
+            <div id="deleteFormError" class="text-red-500 text-sm hidden mt-2"></div>
+        </div>
+        <footer class="vos-modal-footer p-4 border-t bg-slate-50 flex justify-end gap-2">
+            <button type="button" onclick="closeDeleteModal()" class="vos-btn px-4 py-2 border rounded-md hover:bg-slate-100">Cancel</button>
+            <button type="button" onclick="executeDelete()" class="vos-btn-primary px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700" id="confirmDeleteBtn">Delete</button>
+        </footer>
+    </div>
+</div>
+
 <script src="script.js"></script>
 <script>
     const deptTbody = document.getElementById('deptTbody');
@@ -112,7 +131,10 @@
                 <td class="py-3 px-5 text-sm text-slate-600">${d.department_id || d.id || '-'}</td>
                 <td class="py-3 px-5 text-sm font-medium text-slate-900">${d.department_name}</td>
                 <td class="py-3 px-5 text-right">
-                    <button onclick="openEditModal(${d.department_id || d.id})" class="text-blue-600 hover:text-blue-800 font-medium text-sm">Edit</button>
+                    <div class="flex justify-end gap-3">
+                        <button onclick="openEditModal(${d.department_id || d.id})" class="text-blue-600 hover:text-blue-800 font-medium text-sm">Edit</button>
+                        <button onclick="confirmDelete(${d.department_id || d.id})" class="text-red-600 hover:text-red-800 font-medium text-sm">Delete</button>
+                    </div>
                 </td>
             `;
             deptTbody.appendChild(tr);
@@ -140,6 +162,50 @@
 
     function closeModal() {
         deptModal.classList.add('hidden');
+    }
+
+    const deleteModal = document.getElementById('deleteModal');
+    const deleteDeptId = document.getElementById('deleteDeptId');
+    const deleteFormError = document.getElementById('deleteFormError');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+    function confirmDelete(id) {
+        deleteDeptId.value = id;
+        deleteFormError.classList.add('hidden');
+        deleteModal.classList.remove('hidden');
+    }
+
+    function closeDeleteModal() {
+        deleteModal.classList.add('hidden');
+    }
+
+    async function executeDelete() {
+        const id = deleteDeptId.value;
+        if (!id) return;
+        
+        confirmDeleteBtn.disabled = true;
+        confirmDeleteBtn.textContent = 'Deleting...';
+        deleteFormError.classList.add('hidden');
+
+        try {
+            const res = await fetch(`/items/department/${id}`, {
+                method: 'DELETE',
+            });
+
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(errText || 'Failed to delete');
+            }
+
+            closeDeleteModal();
+            await loadDepts();
+        } catch (e) {
+            deleteFormError.textContent = e.message;
+            deleteFormError.classList.remove('hidden');
+        } finally {
+            confirmDeleteBtn.disabled = false;
+            confirmDeleteBtn.textContent = 'Delete';
+        }
     }
 
     async function saveDepartment() {

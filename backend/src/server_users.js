@@ -173,8 +173,67 @@ app.post('/logout', (_req, res) => { res.clearCookie('token'); res.sendStatus(20
 
 /* ===== DEPARTMENTS ===== */
 app.get('/items/department', async (_req, res) => {
-    try { const { data } = await api.get('/department?limit=-1'); res.json(data); }
+    try { 
+        const { data } = await api.get('/department', {
+            params: { limit: -1, 'filter[is_delete][_neq]': 1 }
+        }); 
+        res.json(data); 
+    }
     catch (err) { res.status(err.response?.status || 502).json({ error: 'Department list failed', detail: err.response?.data || err.message }); }
+});
+
+app.get('/items/department/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data } = await api.get(`/department/${id}`);
+        res.json(data);
+    } catch (err) {
+        res.status(err.response?.status || 502).json({ error: 'Get department failed', detail: err.response?.data || err.message });
+    }
+});
+
+app.post('/items/department', async (req, res) => {
+    try {
+        const payload = req.body;
+        payload.is_delete = 0;
+        const { data } = await api.post('/department', payload);
+        res.json(data);
+    } catch (err) {
+        res.status(err.response?.status || 500).json({ error: 'Create department failed', detail: err.response?.data || err.message });
+    }
+});
+
+app.patch('/items/department/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data } = await api.patch(`/department/${id}`, req.body);
+        res.json(data);
+    } catch (err) {
+        res.status(err.response?.status || 500).json({ error: 'Update department failed', detail: err.response?.data || err.message });
+    }
+});
+
+app.delete('/items/department/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        let userId = null;
+        try {
+            if (req.cookies.token) {
+                const parsed = JSON.parse(Buffer.from(req.cookies.token, 'base64').toString('utf-8'));
+                userId = parsed.userId || null;
+            }
+        } catch(e) {}
+        
+        const payload = {
+            is_delete: 1,
+            deleted_at: new Date().toISOString(),
+            deleted_by: userId
+        };
+        const { data } = await api.patch(`/department/${id}`, payload);
+        res.json(data);
+    } catch (err) {
+        res.status(err.response?.status || 500).json({ error: 'Delete department failed', detail: err.response?.data || err.message });
+    }
 });
 
 /* ===== USERS ===== */
