@@ -49,4 +49,6 @@ jobs:
               cd $GITHUB_WORKSPACE
             fi
           done
+          echo "Sync complete. Restarting PM2 processes..."
+          pm2 restart all
           echo "Deployment complete!"
