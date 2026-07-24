@@ -1103,7 +1103,12 @@ async function initDashboard() {
                 await api(`/items/user_schedule/${scheduleId}`, { method: 'PATCH', body: JSON.stringify(body) });
             } else {
                 // Create
-                await api('/items/user_schedule', { method: 'POST', body: JSON.stringify(body) });
+                const res = await api('/items/user_schedule', { method: 'POST', body: JSON.stringify(body) });
+                if (res && res.data && res.data.id) {
+                    scheduleUserForm.dataset.scheduleId = res.data.id;
+                } else if (res && res.id) {
+                    scheduleUserForm.dataset.scheduleId = res.id;
+                }
             }
             $('#scheduleUserFormError').className = 'text-sm text-green-600';
             $('#scheduleUserFormError').textContent = 'Schedule saved successfully!';
