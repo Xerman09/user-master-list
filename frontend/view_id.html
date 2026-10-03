@@ -87,7 +87,19 @@
 
 <body>
     <div class="wrap">
-        <h1>Employee ID (Preview & PNG Export)</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+            <h1 style="margin: 0;">Employee ID (Preview &amp; PNG Export)</h1>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="templateSelect" style="font-weight: 600; font-size: 14px; color: #475569;">Template:</label>
+                <select id="templateSelect" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 14px; font-weight: 600; color: #0f172a; background: #fff; cursor: pointer;">
+                    <option value="VERTEX">VERTEX</option>
+                    <option value="MEN2">MEN2</option>
+                    <option value="RSM">RSM</option>
+                    <option value="HVN">HVN</option>
+                    <option value="RC2">RC2</option>
+                </select>
+            </div>
+        </div>
         <div class="preview">
             <div class="cardbox">
                 <div class="frame"><canvas id="front"></canvas></div>
@@ -149,6 +161,13 @@
                 NAME_Y: 620,
                 POS_Y: 710,
                 EMP_SIGN: { y: 800, w: DESIGN.w, h: 150 },
+                FONT: "'Poppins', sans-serif"
+            },
+            VERTEX: {
+                PHOTO: { cx: 295, cy: 384, d: 280, shape: 'square' },
+                NAME_Y: 626,
+                POS_Y: 676,
+                EMP_SIGN: { y: 835, w: 320, h: 80 },
                 FONT: "'Poppins', sans-serif"
             }
         };
@@ -224,8 +243,20 @@
             };
         }
 
-        const FULLNAME = (u) =>
-            `${u.fname}${u.mname ? " " + u.mname[0].toUpperCase() + "." : ""} ${u.lname}`.toUpperCase();
+        const FULLNAME = (u) => {
+            if (!u) return '';
+            const fname = (u.fname || '').trim();
+            const mname = (u.mname || '').trim();
+            const lname = (u.lname || '').trim();
+            const parts = [];
+            if (fname) parts.push(fname);
+            if (mname) {
+                const initial = mname[0].toUpperCase();
+                parts.push(initial.endsWith('.') ? initial : initial + '.');
+            }
+            if (lname) parts.push(lname);
+            return parts.join(' ').replace(/\s+/g, ' ').toUpperCase();
+        };
 
         const USERID = (id) => `${state.companyPrefix || 'MEN2'}-${String(id || 0).toString().padStart(4, "0")}`;
         const ADDRESS = (u) => [u.city, u.province].filter(Boolean).join(", ").toUpperCase();
@@ -250,8 +281,8 @@
 
         /* ---------- DRAW HELPERS ---------- */
         const LOADED = {};
-        async function ensureAssets() {
-            if (LOADED.ready) return;
+        async function ensureAssets(forceReload = false) {
+            if (LOADED.ready && !forceReload) return;
             const { bgF, bgB, user, sigUser, sigCEO } = state.images;
             const [a, b, c, d, e] = await Promise.all([
                 loadImage(bgF),
@@ -385,7 +416,7 @@
                     drawCircleImage(ctx, LOADED.user, PHOTO.cx, PHOTO.cy, PHOTO.d);
                 }
 
-                if (state.showRing) {
+                if (state.showRing && state.companyCode !== 'VERTEX') {
                     ctx.beginPath();
                     if (PHOTO.shape === 'square') {
                         const r = PHOTO.d / 2;
@@ -477,6 +508,56 @@
                     ctx.fillText(u.email || '', infoValueX, 830);
 
                     ctx.restore();
+                } else if (state.companyCode === 'VERTEX') {
+                    const fontFam = layout.FONT || FONT_FAMILY;
+                    const nameStr = FULLNAME(u);
+
+                    // VERTEX NAME (above horizontal line - naturally proportioned, auto-scaling if needed)
+                    ctx.save();
+                    let nameSz = 30;
+                    ctx.font = `800 ${nameSz}px ${fontFam}`;
+                    while (ctx.measureText(nameStr).width > (DESIGN.w - 50) && nameSz > 16) {
+                        nameSz--;
+                        ctx.font = `800 ${nameSz}px ${fontFam}`;
+                    }
+                    drawTextWithOutline(ctx, nameStr, DESIGN.w / 2, NAME_Y, 'center', '#000000', 800, nameSz, false);
+                    ctx.restore();
+
+                    // VERTEX POSITION (below horizontal line)
+                    const posStr = (u.position || '').toUpperCase();
+                    ctx.save();
+                    let posSz = 22;
+                    ctx.font = `700 ${posSz}px ${fontFam}`;
+                    while (ctx.measureText(posStr).width > (DESIGN.w - 50) && posSz > 14) {
+                        posSz--;
+                        ctx.font = `700 ${posSz}px ${fontFam}`;
+                    }
+                    drawTextWithOutline(ctx, posStr, DESIGN.w / 2, POS_Y, 'center', '#222222', 700, posSz, false);
+                    ctx.restore();
+
+                    // VERTEX INFO (aligned next to background labels: ID NUMBER, PHONE, ADDRESS)
+                    const infoX = 185;
+                    ctx.save();
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'alphabetic';
+                    ctx.fillStyle = '#111111';
+                    ctx.font = `600 20px ${FONT_FAMILY}`;
+
+                    ctx.fillText(USERID(u.id), infoX, 776);
+                    ctx.fillText(u.contact || '', infoX, 802);
+
+                    let addr = ADDRESS(u);
+                    let addrFont = 18;
+                    ctx.font = `600 ${addrFont}px ${FONT_FAMILY}`;
+                    while (ctx.measureText(addr).width > (DESIGN.w - infoX - 30) && addrFont > 12) {
+                        addrFont--;
+                        ctx.font = `600 ${addrFont}px ${FONT_FAMILY}`;
+                    }
+                    ctx.fillText(addr, infoX, 828);
+                    ctx.restore();
+
+                    // Employee signature
+                    drawCenteredSignature(ctx, LOADED.sigUser, EMP_SIGN.y, EMP_SIGN.w, EMP_SIGN.h, true, false);
                 } else {
                     // NAME
                     ctx.save();
@@ -562,6 +643,59 @@
                     }
 
                     ctx.restore();
+                } else if (state.companyCode === 'VERTEX') {
+                    // VERTEX Back details
+                    const valStartX = 220;
+                    ctx.save();
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'alphabetic';
+                    ctx.fillStyle = '#111111';
+
+                    const drawBackValue = (val, y, maxW = 340) => {
+                        if (!val) return;
+                        let sz = 19;
+                        ctx.font = `600 ${sz}px ${FONT_FAMILY}`;
+                        while (ctx.measureText(val).width > maxW && sz > 12) {
+                            sz--;
+                            ctx.font = `600 ${sz}px ${FONT_FAMILY}`;
+                        }
+                        ctx.fillText(val, valStartX, y);
+                    };
+
+                    drawBackValue(ADDRESS(u), 230);
+                    drawBackValue(fmtBday(u.birthday), 258);
+                    drawBackValue(u.sss || '', 286);
+                    drawBackValue(u.philhealth || '', 313);
+                    drawBackValue(u.pagibig || '', 342);
+                    drawBackValue(u.tin || '', 369);
+
+                    // Emergency Contact Section
+                    // Below NAME (x=60) and NUMBER (x=325) headers at y≈460, and above GM name at y≈608
+                    const emY = 520;
+                    const emName = (u.e_name || '').trim().toUpperCase();
+                    const emContact = (u.e_contact || '').trim();
+
+                    if (emName) {
+                        let sz = 18;
+                        ctx.font = `700 ${sz}px ${FONT_FAMILY}`;
+                        while (ctx.measureText(emName).width > 220 && sz > 12) {
+                            sz--;
+                            ctx.font = `700 ${sz}px ${FONT_FAMILY}`;
+                        }
+                        ctx.fillText(emName, 60, emY);
+                    }
+
+                    if (emContact) {
+                        let sz = 18;
+                        ctx.font = `700 ${sz}px ${FONT_FAMILY}`;
+                        while (ctx.measureText(emContact).width > 220 && sz > 12) {
+                            sz--;
+                            ctx.font = `700 ${sz}px ${FONT_FAMILY}`;
+                        }
+                        ctx.fillText(emContact, 325, emY);
+                    }
+
+                    ctx.restore();
                 } else {
                     // MEN2 Back details
                     drawTextWithOutline(ctx, ADDRESS(u), 250, 258, 'left', '#111', 600, 23);
@@ -599,17 +733,30 @@
             a.click();
         }
 
+        function showMessage(msg, isError = true) {
+            let box = document.getElementById('msgBanner');
+            if (!box) {
+                box = document.createElement('div');
+                box.id = 'msgBanner';
+                box.style.cssText = 'margin-bottom:16px;padding:12px 16px;border-radius:8px;font-weight:600;font-size:14px;';
+                document.querySelector('.wrap').prepend(box);
+            }
+            box.style.background = isError ? '#fee2e2' : '#e0f2fe';
+            box.style.color = isError ? '#991b1b' : '#0369a1';
+            box.style.border = isError ? '1px solid #f87171' : '1px solid #7dd3fc';
+            box.textContent = msg;
+        }
+
         /* ---------- MAIN ---------- */
         (async function init() {
             const id = qs('id');
             if (!id) {
-                alert('Missing ?id= parameter');
+                showMessage('Missing ?id= parameter in URL. Please provide a user ID.');
                 return;
             }
 
-            try {
-                const cfg = await fetchJSON('/config');
-                const code = (cfg.COMPANY_CODE || 'MEN2').toUpperCase();
+            function setCompany(code) {
+                code = (code || 'VERTEX').toUpperCase();
                 state.companyCode = code;
 
                 if (code === 'RSM') {
@@ -618,6 +765,8 @@
                     state.companyPrefix = 'HVN';
                 } else if (code === 'RC2') {
                     state.companyPrefix = 'RC2';
+                } else if (code === 'VERTEX') {
+                    state.companyPrefix = 'VERTEX';
                 } else {
                     state.companyPrefix = 'MEN2';
                 }
@@ -626,11 +775,29 @@
                 const codeLower = code.toLowerCase();
                 state.images.bgF = `image/front-id-${codeLower}.png`;
                 state.images.bgB = `image/back-id-${codeLower}.png`;
+            }
+
+            try {
+                const cfg = await fetchJSON('/config');
+                const queryCode = qs('company') || qs('template');
+                const initialCode = queryCode || cfg.COMPANY_CODE || 'VERTEX';
+                setCompany(initialCode);
             } catch (e) {
-                state.companyCode = 'MEN2';
-                state.companyPrefix = 'MEN2';
-                state.images.bgF = `image/front-id-men2.png`;
-                state.images.bgB = `image/back-id-men2.png`;
+                const queryCode = qs('company') || qs('template');
+                setCompany(queryCode || 'VERTEX');
+            }
+
+            // Sync template selector UI
+            const tplSelect = document.getElementById('templateSelect');
+            if (tplSelect) {
+                tplSelect.value = state.companyCode;
+                tplSelect.onchange = async (e) => {
+                    setCompany(e.target.value);
+                    await ensureAssets(true);
+                    const out = targetPx();
+                    renderSideTo(front.getContext('2d'), out.w, out.h, 'front');
+                    renderSideTo(back.getContext('2d'), out.w, out.h, 'back');
+                };
             }
 
             // Load user from your API
@@ -640,7 +807,7 @@
                 USER = mapApiUser(payload);
             } catch (e) {
                 console.error(e);
-                alert('Failed to load user: ' + e.message);
+                showMessage('Failed to load user: ' + e.message);
                 return;
             }
 
@@ -660,11 +827,11 @@
             // Downloads
             document.getElementById('dlFrontPng').onclick = async () => {
                 const url = await exportPNG('front');
-                download(url, `${FULLNAME(state.user)}_Front_${state.size}.png`);
+                download(url, `${FULLNAME(state.user)}_${state.companyCode}_Front_${state.size}.png`);
             };
             document.getElementById('dlBackPng').onclick = async () => {
                 const url = await exportPNG('back');
-                download(url, `${FULLNAME(state.user)}_Back_${state.size}.png`);
+                download(url, `${FULLNAME(state.user)}_${state.companyCode}_Back_${state.size}.png`);
             };
         })();
     </script>
