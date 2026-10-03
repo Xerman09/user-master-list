@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 3002;
 const DIRECTUS = `http://${process.env.API_IP || 'localhost'}:${process.env.API_PORT || '8091'}/items`;
 const BASE_FILE_HOST = process.env.BASE_FILE_HOST || process.env.FILE_HOST || '';
 const COMPANY_NAME = process.env.COMPANY_NAME || 'VERTEX';
-const COMPANY_CODE = process.env.COMPANY_CODE || 'VERTEX';
+const COMPANY_CODE = process.env.COMPANY_CODE || 'VTC';
 
 const DIRECTUS_TOKEN = (() => {
     // 1. Check .env variable first

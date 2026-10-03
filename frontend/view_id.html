@@ -92,6 +92,7 @@
             <div style="display: flex; align-items: center; gap: 8px;">
                 <label for="templateSelect" style="font-weight: 600; font-size: 14px; color: #475569;">Template:</label>
                 <select id="templateSelect" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 14px; font-weight: 600; color: #0f172a; background: #fff; cursor: pointer;">
+                    <option value="VTC">VTC</option>
                     <option value="VERTEX">VERTEX</option>
                     <option value="MEN2">MEN2</option>
                     <option value="RSM">RSM</option>
@@ -168,9 +169,13 @@
                 NAME_Y: 626,
                 POS_Y: 676,
                 EMP_SIGN: { y: 835, w: 320, h: 80 },
-                FONT: "'Poppins', sans-serif"
+                FONT: "'Poppins', sans-serif",
+                nameStretchX: 1.0,
+                nameStretchY: 1.35,
+                nameSize: 32
             }
         };
+        LAYOUTS.VTC = LAYOUTS.VERTEX;
 
         /* ---------- STATE ---------- */
         const state = {
@@ -416,7 +421,7 @@
                     drawCircleImage(ctx, LOADED.user, PHOTO.cx, PHOTO.cy, PHOTO.d);
                 }
 
-                if (state.showRing && state.companyCode !== 'VERTEX') {
+                if (state.showRing && state.companyCode !== 'VERTEX' && state.companyCode !== 'VTC') {
                     ctx.beginPath();
                     if (PHOTO.shape === 'square') {
                         const r = PHOTO.d / 2;
@@ -508,19 +513,24 @@
                     ctx.fillText(u.email || '', infoValueX, 830);
 
                     ctx.restore();
-                } else if (state.companyCode === 'VERTEX') {
+                } else if (state.companyCode === 'VERTEX' || state.companyCode === 'VTC') {
                     const fontFam = layout.FONT || FONT_FAMILY;
                     const nameStr = FULLNAME(u);
 
-                    // VERTEX NAME (above horizontal line - naturally proportioned, auto-scaling if needed)
+                    // VERTEX NAME (above horizontal line - taller font proportion, auto-scaling if needed)
                     ctx.save();
-                    let nameSz = 30;
+                    ctx.translate(DESIGN.w / 2, NAME_Y);
+                    const stretchX = layout.nameStretchX || 1.0;
+                    const stretchY = layout.nameStretchY || 1.35;
+                    ctx.scale(stretchX, stretchY);
+
+                    let nameSz = layout.nameSize || 32;
                     ctx.font = `800 ${nameSz}px ${fontFam}`;
-                    while (ctx.measureText(nameStr).width > (DESIGN.w - 50) && nameSz > 16) {
+                    while ((ctx.measureText(nameStr).width * stretchX) > (DESIGN.w - 50) && nameSz > 16) {
                         nameSz--;
                         ctx.font = `800 ${nameSz}px ${fontFam}`;
                     }
-                    drawTextWithOutline(ctx, nameStr, DESIGN.w / 2, NAME_Y, 'center', '#000000', 800, nameSz, false);
+                    drawTextWithOutline(ctx, nameStr, 0, 0, 'center', '#000000', 800, nameSz, false);
                     ctx.restore();
 
                     // VERTEX POSITION (below horizontal line)
@@ -643,7 +653,7 @@
                     }
 
                     ctx.restore();
-                } else if (state.companyCode === 'VERTEX') {
+                } else if (state.companyCode === 'VERTEX' || state.companyCode === 'VTC') {
                     // VERTEX Back details
                     const valStartX = 220;
                     ctx.save();
@@ -670,29 +680,34 @@
                     drawBackValue(u.tin || '', 369);
 
                     // Emergency Contact Section
-                    // Below NAME (x=60) and NUMBER (x=325) headers at y≈460, and above GM name at y≈608
-                    const emY = 520;
+                    // Vertically centered with the '|' separator (y≈449-471), nicely flanking the bar
+                    const emY = 466;
                     const emName = (u.e_name || '').trim().toUpperCase();
                     const emContact = (u.e_contact || '').trim();
+
+                    ctx.save();
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'alphabetic';
+                    ctx.fillStyle = '#111111';
 
                     if (emName) {
                         let sz = 18;
                         ctx.font = `700 ${sz}px ${FONT_FAMILY}`;
-                        while (ctx.measureText(emName).width > 220 && sz > 12) {
+                        while (ctx.measureText(emName).width > 240 && sz > 11) {
                             sz--;
                             ctx.font = `700 ${sz}px ${FONT_FAMILY}`;
                         }
-                        ctx.fillText(emName, 60, emY);
+                        ctx.fillText(emName, DESIGN.w / 4, emY);
                     }
 
                     if (emContact) {
                         let sz = 18;
                         ctx.font = `700 ${sz}px ${FONT_FAMILY}`;
-                        while (ctx.measureText(emContact).width > 220 && sz > 12) {
+                        while (ctx.measureText(emContact).width > 240 && sz > 11) {
                             sz--;
                             ctx.font = `700 ${sz}px ${FONT_FAMILY}`;
                         }
-                        ctx.fillText(emContact, 325, emY);
+                        ctx.fillText(emContact, (DESIGN.w * 3) / 4, emY);
                     }
 
                     ctx.restore();
@@ -756,7 +771,7 @@
             }
 
             function setCompany(code) {
-                code = (code || 'VERTEX').toUpperCase();
+                code = (code || 'VTC').toUpperCase();
                 state.companyCode = code;
 
                 if (code === 'RSM') {
@@ -765,14 +780,15 @@
                     state.companyPrefix = 'HVN';
                 } else if (code === 'RC2') {
                     state.companyPrefix = 'RC2';
-                } else if (code === 'VERTEX') {
-                    state.companyPrefix = 'VERTEX';
+                } else if (code === 'VERTEX' || code === 'VTC') {
+                    state.companyPrefix = 'VTC';
                 } else {
                     state.companyPrefix = 'MEN2';
                 }
 
                 // Dynamically select background images based on the company code
-                const codeLower = code.toLowerCase();
+                let codeLower = code.toLowerCase();
+                if (codeLower === 'vtc') codeLower = 'vertex';
                 state.images.bgF = `image/front-id-${codeLower}.png`;
                 state.images.bgB = `image/back-id-${codeLower}.png`;
             }
@@ -780,11 +796,11 @@
             try {
                 const cfg = await fetchJSON('/config');
                 const queryCode = qs('company') || qs('template');
-                const initialCode = queryCode || cfg.COMPANY_CODE || 'VERTEX';
+                const initialCode = queryCode || cfg.COMPANY_CODE || 'VTC';
                 setCompany(initialCode);
             } catch (e) {
                 const queryCode = qs('company') || qs('template');
-                setCompany(queryCode || 'VERTEX');
+                setCompany(queryCode || 'VTC');
             }
 
             // Sync template selector UI

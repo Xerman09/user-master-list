@@ -264,13 +264,18 @@
     }
 
     // Initialize on load
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
         loadDepts();
-        
-        // Setup brand name if initConfig exists in script.js
-        if (typeof COMPANY_NAME !== 'undefined') {
-            document.getElementById('brandName').textContent = COMPANY_NAME;
-        }
+        try {
+            const res = await fetch('/config');
+            if (res.ok) {
+                const cfg = await res.json();
+                if (cfg.COMPANY_NAME) {
+                    const b = document.getElementById('brandName');
+                    if (b) b.textContent = cfg.COMPANY_NAME;
+                }
+            }
+        } catch {}
     });
 </script>
 </body>
