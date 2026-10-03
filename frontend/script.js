@@ -24,8 +24,20 @@ async function api(path, opts = {}) {
     });
     if (!res.ok) {
         let msg = '';
-        try { msg = await res.text(); } catch {}
-        throw new Error(msg || `${res.status}`);
+        let errData = null;
+        try {
+            const text = await res.text();
+            try {
+                errData = JSON.parse(text);
+                msg = errData.error || errData.message || (errData.errors?.[0]?.message) || text;
+            } catch {
+                msg = text;
+            }
+        } catch {}
+        const error = new Error(msg || `Request failed with status ${res.status}`);
+        error.status = res.status;
+        error.data = errData;
+        throw error;
     }
     const ct = res.headers.get('content-type') || '';
     return ct.includes('application/json') ? res.json() : res.text();
@@ -50,12 +62,22 @@ async function uploadFile(inputId, route) {
     fd.append('file', input.files[0]);
     try {
         const res = await fetch(route, { method: 'POST', body: fd, credentials: 'include' });
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) {
+            let msg = '';
+            try {
+                const text = await res.text();
+                try {
+                    const parsed = JSON.parse(text);
+                    msg = parsed.error || parsed.message || text;
+                } catch { msg = text; }
+            } catch {}
+            throw new Error(msg || `Upload failed with status ${res.status}`);
+        }
         const json = await res.json();
         return json.url || null;
     } catch (e) {
-        console.warn(`Upload failed for ${route}:`, e.message || e);
-        return null;
+        console.error(`Upload failed for ${route}:`, e.message || e);
+        throw e;
     }
 }
 
@@ -900,6 +922,9 @@ async function initDashboard() {
         }
         if (editUserForm) editUserForm.dataset.userId = user.user_id;
         
+        const editErr = getEl('editUserFormError');
+        if (editErr) { editErr.textContent = ''; editErr.classList.add('hidden'); }
+
         activateEditTab('editProfile');
         scheduleUserForm.dataset.userId = ''; // Reset schedule data binding so it reloads if clicked
 
@@ -914,13 +939,16 @@ async function initDashboard() {
         e.preventDefault();
         if (isSubmittingEdit) return;
         isSubmittingEdit = true;
-        const submitBtn = document.querySelector('button[form="editUserForm"]');
+        const submitBtn = document.querySelector('button[form="editUserForm"]') || getEl('editProfileSubmitBtn');
         if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Updating...'; }
+
+        const editErr = getEl('editUserFormError');
+        if (editErr) { editErr.textContent = ''; editErr.classList.add('hidden'); }
 
         const userId = editUserForm?.dataset?.userId;
         if (!userId) {
             isSubmittingEdit = false;
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Update User'; }
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Update Profile'; }
             return;
         }
 
@@ -929,15 +957,49 @@ async function initDashboard() {
         const cCode = fd.get('city') || '';
         const bCode = fd.get('barangay') || '';
 
-        let newImageUrl = await uploadFile('editUserImage', '/uploads/users');
-        let newSignatureUrl = await uploadFile('editSignatureFile', '/uploads/signatures');
+        let newImageUrl = null;
+        try {
+            if (getEl('editUserImage')?.files?.length) {
+                if (submitBtn) submitBtn.textContent = 'Uploading photo...';
+                newImageUrl = await uploadFile('editUserImage', '/uploads/users');
+            }
+        } catch (imgErr) {
+            isSubmittingEdit = false;
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Update Profile'; }
+            if (editErr) {
+                editErr.textContent = `Photo upload failed: ${imgErr.message}`;
+                editErr.classList.remove('hidden');
+            }
+            return;
+        }
+
+        let newSignatureUrl = null;
+        try {
+            if (getEl('editSignatureFile')?.files?.length) {
+                if (submitBtn) submitBtn.textContent = 'Uploading signature...';
+                newSignatureUrl = await uploadFile('editSignatureFile', '/uploads/signatures');
+            }
+        } catch (sigErr) {
+            isSubmittingEdit = false;
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Update Profile'; }
+            if (editErr) {
+                editErr.textContent = `Signature upload failed: ${sigErr.message}`;
+                editErr.classList.remove('hidden');
+            }
+            return;
+        }
 
         if (!newSignatureUrl && editSigPad?.hasInk()) {
+            if (submitBtn) submitBtn.textContent = 'Saving signature pad...';
             try {
                 const r = await api('/signatures', { method:'POST', body: JSON.stringify({ dataUrl: editSigPad.toDataURL() }) });
                 newSignatureUrl = r.url || null;
-            } catch {}
+            } catch (padErr) {
+                console.warn('Failed saving signature pad:', padErr);
+            }
         }
+
+        if (submitBtn) submitBtn.textContent = 'Saving user details...';
 
         const body = {};
         if (nonEmpty(fd.get('firstName'))) body.user_fname = fd.get('firstName');
@@ -1009,10 +1071,16 @@ async function initDashboard() {
             closeModal(editUserModal);
             await loadUsers();
         } catch (err) {
-            alert(`Update user failed: ${err.message}`);
+            if (editErr) {
+                editErr.textContent = `Update user failed: ${err.message}`;
+                editErr.classList.remove('hidden');
+                editErr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else {
+                console.error('Update user failed:', err);
+            }
         } finally {
             isSubmittingEdit = false;
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Update User'; }
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Update Profile'; }
         }
     });
 

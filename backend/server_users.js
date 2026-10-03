@@ -40,36 +40,61 @@ const DIRECTUS_TOKEN = (() => {
     return '';
 })();
 
-/* Axios instance WITH token on primary port */
+/* Helper to extract meaningful error messages from Directus / Axios errors */
+function extractErrorMessage(err, fallback = 'Operation failed') {
+    if (!err) return fallback;
+    if (err.code === 'ECONNABORTED') return 'Request to database timed out. Please try again.';
+    if (err.code === 'ECONNREFUSED') return 'Unable to connect to database server.';
+    if (err.code === 'ENOTFOUND') return 'Database host not found.';
+
+    const respData = err.response?.data;
+    if (respData) {
+        if (typeof respData === 'string' && respData.trim() && !respData.startsWith('<')) {
+            return respData;
+        }
+        if (Array.isArray(respData.errors) && respData.errors.length > 0) {
+            const first = respData.errors[0];
+            return first?.message || first?.extensions?.reason || fallback;
+        }
+        if (respData.message) return respData.message;
+        if (respData.error) {
+            return typeof respData.error === 'string' ? respData.error : (respData.error.message || fallback);
+        }
+    }
+    return err.message || fallback;
+}
+
+/* Axios instance WITH token on primary port (30s timeout for stability over Tailscale) */
 const apiWithToken = axios.create({
     baseURL: DIRECTUS,
-    timeout: 15000,
+    timeout: 30000,
     headers: { ...(DIRECTUS_TOKEN ? { Authorization: `Bearer ${DIRECTUS_TOKEN}` } : {}) },
 });
 
 /* Axios instance WITHOUT token on primary port */
 const apiNoToken = axios.create({
     baseURL: DIRECTUS,
-    timeout: 15000,
+    timeout: 30000,
 });
 
-/* Fallback Directus URL (try common alternative port 8093) */
-const DIRECTUS_FALLBACK = `http://${process.env.API_IP || 'localhost'}:8093/items`;
-const apiFallback = axios.create({
+/* Fallback Directus URL (optional, only enabled if API_FALLBACK_PORT is set) */
+const HAS_FALLBACK = !!process.env.API_FALLBACK_PORT;
+const DIRECTUS_FALLBACK = HAS_FALLBACK ? `http://${process.env.API_IP || 'localhost'}:${process.env.API_FALLBACK_PORT}/items` : null;
+const apiFallback = HAS_FALLBACK ? axios.create({
     baseURL: DIRECTUS_FALLBACK,
-    timeout: 15000,
+    timeout: 30000,
     headers: { ...(DIRECTUS_TOKEN ? { Authorization: `Bearer ${DIRECTUS_TOKEN}` } : {}) },
-});
-const apiFallbackNoToken = axios.create({
+}) : null;
+const apiFallbackNoToken = HAS_FALLBACK ? axios.create({
     baseURL: DIRECTUS_FALLBACK,
-    timeout: 15000,
-});
+    timeout: 30000,
+}) : null;
 
 /**
  * Resilient API wrapper:
  *  1. Tries primary port with token
  *  2. On 401/403 → retries primary port without token
- *  3. On any failure → tries fallback port (8093) with token, then without
+ *  3. On server failure (5xx/network) → tries fallback port if configured
  *  Works even when token is null, empty, or invalid
  */
 async function resilientCall(method, args) {
@@ -84,32 +109,40 @@ async function resilientCall(method, args) {
             throw err1;
         }
 
+        // Do not retry 4xx client errors (e.g. 400 Bad Request, 404 Not Found, 422 Unprocessable)
+        if (status1 && status1 >= 400 && status1 < 500 && status1 !== 401 && status1 !== 403) {
+            throw err1;
+        }
+
         // 2. If 401/403, try primary without token
         if (DIRECTUS_TOKEN && [401, 403].includes(status1)) {
             console.warn('⚠️ Token rejected on primary, retrying without token...');
             try {
                 return await apiNoToken[method](...args);
             } catch (err2) {
-                // Fall through to fallback
+                // Fall through to fallback if configured
             }
         }
-        // 3. Try fallback port with token
-        try {
-            const result = await apiFallback[method](...args);
-            console.log(`↪️ Fallback port (8093) succeeded for ${method.toUpperCase()} ${args[0]}`);
-            return result;
-        } catch (err3) {
-            // 4. Try fallback port without token
-            if (DIRECTUS_TOKEN && [401, 403].includes(err3.response?.status)) {
-                try {
-                    const result = await apiFallbackNoToken[method](...args);
-                    console.log(`↪️ Fallback port (8093, no token) succeeded for ${method.toUpperCase()} ${args[0]}`);
-                    return result;
-                } catch (err4) {
-                    // All attempts failed
+
+        // 3. Try fallback port if configured
+        if (HAS_FALLBACK && apiFallback) {
+            try {
+                const result = await apiFallback[method](...args);
+                console.log(`↪️ Fallback port succeeded for ${method.toUpperCase()} ${args[0]}`);
+                return result;
+            } catch (err3) {
+                if (DIRECTUS_TOKEN && [401, 403].includes(err3.response?.status) && apiFallbackNoToken) {
+                    try {
+                        const result = await apiFallbackNoToken[method](...args);
+                        console.log(`↪️ Fallback port (no token) succeeded for ${method.toUpperCase()} ${args[0]}`);
+                        return result;
+                    } catch (err4) {
+                        // All fallback attempts failed
+                    }
                 }
             }
         }
+
         // All attempts failed — throw original error
         throw err1;
     }
@@ -419,15 +452,17 @@ app.post('/items/user', async (req, res) => {
         const { data } = await api.post('/user', body);
         res.json(transformResp(data));
     } catch (err) {
+        const message = extractErrorMessage(err, 'Create user failed');
+        console.error('❌ [POST /items/user] error:', message, err.response?.data || err.code || err.message);
         res
-            .status(err.response?.status || 500)
-            .json({ error: 'Create user failed', detail: err.response?.data || err.message });
+            .status(err.response?.status || (err.code === 'ECONNABORTED' ? 504 : 500))
+            .json({ error: message, detail: err.response?.data || err.message, code: err.code });
     }
 });
 
 app.patch('/items/user/:id', async (req, res) => {
+    const { id } = req.params;
     try {
-        const { id } = req.params;
         const body = sanitizeUserPayload(req.body, true);
         try {
             const { data } = await api.patch(`/user/${id}`, body);
@@ -443,9 +478,14 @@ app.patch('/items/user/:id', async (req, res) => {
             throw e;
         }
     } catch (err) {
-        res
-            .status(err.response?.status || 500)
-            .json({ error: err.response?.data?.errors?.[0]?.message || 'Failed to update user' });
+        const message = extractErrorMessage(err, 'Failed to update user');
+        console.error(`❌ [PATCH /items/user/${id}] error:`, message, err.response?.data || err.code || err.message);
+        const statusCode = err.response?.status || (err.code === 'ECONNABORTED' ? 504 : 500);
+        res.status(statusCode).json({
+            error: message,
+            detail: err.response?.data || err.message,
+            code: err.code
+        });
     }
 });
 
