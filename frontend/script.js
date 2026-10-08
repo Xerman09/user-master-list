@@ -208,6 +208,7 @@ async function initDashboard() {
     const showActiveCb = $('#showActiveCheckbox');
     const showInactiveCb = $('#showInactiveCheckbox');
     const departmentFilter = $('#departmentFilter');
+    const employeeTypeFilter = $('#employeeTypeFilter');
     const employeeFilter = $('#employeeFilter');
 
     const resultInfo = $('#resultInfo');
@@ -404,6 +405,11 @@ async function initDashboard() {
             const opts = ['<option value="">Select</option>'].concat((data || []).map(d => `<option value="${d.id}">${d.type_name}</option>`));
             const nel = getEl('newEmployeeType'); if (nel) nel.innerHTML = opts.join('');
             const eel = getEl('editEmployeeType'); if (eel) eel.innerHTML = opts.join('');
+            if (employeeTypeFilter) {
+                const filterOpts = ['<option value="">All</option>']
+                    .concat((data || []).map(d => `<option value="${d.id}">${d.type_name}</option>`));
+                employeeTypeFilter.innerHTML = filterOpts.join('');
+            }
         } catch(e) {}
     }
 
@@ -513,6 +519,7 @@ async function initDashboard() {
         const showInactive = showInactiveCb?.checked ?? false;
 
         const depFilter = departmentFilter ? departmentFilter.value : '';
+        const empTypeFilter = employeeTypeFilter ? employeeTypeFilter.value : '';
         const empFilter = employeeFilter ? employeeFilter.value : 'employee_only';
 
         return ALL_USERS.filter(u => {
@@ -521,6 +528,9 @@ async function initDashboard() {
 
             // --- department filter ---
             if (depFilter && String(u.user_department) !== depFilter) return false;
+
+            // --- employee type filter ---
+            if (empTypeFilter && String(u.employee_type_id) !== empTypeFilter) return false;
 
             // --- status (active vs inactive) ---
             const isInactive = !!u.isDeleted;
@@ -539,11 +549,17 @@ async function initDashboard() {
             // --- search ---
             if (search) {
                 const name = `${u.user_fname || ''} ${u.user_mname || ''} ${u.user_lname || ''}`.toLowerCase();
-                const dep  = (u.user_department || '').toString();
+                const dep  = (u.user_department || '').toString().toLowerCase();
+                const depName = (departmentMap[u.user_department] || '').toLowerCase();
+                const empTypeName = (employeeTypeMap[u.employee_type_id] || '').toLowerCase();
+                const pos  = (u.user_position || '').toLowerCase();
                 return (
                     name.includes(search) ||
                     (u.user_email || '').toLowerCase().includes(search) ||
-                    dep.includes(search)
+                    dep.includes(search) ||
+                    depName.includes(search) ||
+                    empTypeName.includes(search) ||
+                    pos.includes(search)
                 );
             }
             return true;
@@ -572,6 +588,7 @@ async function initDashboard() {
           <div class="text-xs text-slate-400">${[u.user_brgy, u.user_city, u.user_province].filter(Boolean).join(' • ') || ''}</div>
         </td>
         <td class="text-sm">${u.user_department ? (departmentMap[u.user_department] || u.user_department) : 'N/A'}</td>
+        <td class="text-sm">${u.employee_type_id ? (employeeTypeMap[u.employee_type_id] || u.employee_type_id) : 'N/A'}</td>
         <td class="text-sm">
           ${u.user_position || 'N/A'}
           <br/>
@@ -1199,6 +1216,7 @@ async function initDashboard() {
     showActiveCb?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
     showInactiveCb?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
     departmentFilter?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
+    employeeTypeFilter?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
     employeeFilter?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
 
     /* ---------- Boot ---------- */
