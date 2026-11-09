@@ -31,13 +31,14 @@ jobs:
               
               echo "Processing: $APP_PATH"
               
-              # 2. Sync source code but EXCLUDE package.json and .env
-              # This keeps your 'start' commands and secrets safe on the server
+              # 2. Sync source code but EXCLUDE package.json, .env, and uploads
+              # This keeps your 'start' commands, secrets, and uploaded images safe on the server
               rsync -a --delete \
                 --exclude='node_modules' \
                 --exclude='.git' \
                 --exclude='package.json' \
                 --exclude='.env' \
+                --exclude='uploads' \
                 ./ "$APP_PATH/"
               
               # 3. Build (if needed)
