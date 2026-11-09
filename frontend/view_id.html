@@ -87,11 +87,13 @@
 
 <body>
     <div class="wrap">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
             <h1 style="margin: 0;">Employee ID (Preview &amp; PNG Export)</h1>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <label for="templateSelect" style="font-weight: 600; font-size: 14px; color: #475569;">Template:</label>
-                <select id="templateSelect" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 14px; font-weight: 600; color: #0f172a; background: #fff; cursor: pointer;">
+                <select id="templateSelect"
+                    style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 14px; font-weight: 600; color: #0f172a; background: #fff; cursor: pointer;">
                     <option value="VTC">VTC</option>
                     <option value="VERTEX">VERTEX</option>
                     <option value="MEN2">MEN2</option>
@@ -448,7 +450,7 @@
                     ctx.restore();
 
                     // RSM POSITION
-                    drawTextWithOutline(ctx, (u.position || '').toUpperCase(), DESIGN.w / 2, POS_Y, 'center', '#fff', 700, 35, false);
+                    drawTextWithOutline(ctx, (u.position || '').toUpperCase(), DESIGN.w / 2, POS_Y, 'center', '#fff', 700, 30, false);
 
                     // RSM INFO (left aligned)
                     drawTextWithOutline(ctx, USERID(u.id), 230, 830, 'left', '#fff', 400, t.base, false);
