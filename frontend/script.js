@@ -1104,8 +1104,14 @@ async function initDashboard() {
     /* ---------- Schedule User ---------- */
     const schedFlexibleBtn = getEl('schedFlexibleBtn');
     const schedIsFlexible = getEl('schedIsFlexible');
+    const schedFlexibleCard = getEl('schedFlexibleCard');
+    const schedFlexibleIconBox = getEl('schedFlexibleIconBox');
+    const schedFlexibleBadge = getEl('schedFlexibleBadge');
+    const schedFlexibleTrack = getEl('schedFlexibleTrack');
     const schedFlexibleDot = getEl('schedFlexibleDot');
     const schedFlexibleLabel = getEl('schedFlexibleLabel');
+    const schedHoursLockTag = getEl('schedHoursLockTag');
+    const schedHoursGrid = getEl('schedHoursGrid');
 
     function toBoolVal(val) {
         if (val && typeof val === 'object' && val.type === 'Buffer' && Array.isArray(val.data)) {
@@ -1118,20 +1124,53 @@ async function initDashboard() {
     function setFlexibleTimeUI(isFlex) {
         const active = !!isFlex;
         if (schedIsFlexible) schedIsFlexible.checked = active;
+
+        if (schedFlexibleCard) {
+            schedFlexibleCard.className = active
+                ? 'flex items-center justify-between gap-4 p-4 rounded-xl border border-blue-200 bg-blue-50/60 transition-all'
+                : 'flex items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/80 transition-all';
+        }
+        if (schedFlexibleIconBox) {
+            schedFlexibleIconBox.className = active
+                ? 'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white transition-colors'
+                : 'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-200/80 text-slate-600 transition-colors';
+        }
+        if (schedFlexibleBadge) {
+            schedFlexibleBadge.textContent = active ? 'Flexible Active' : 'Fixed Hours';
+            schedFlexibleBadge.className = active
+                ? 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold bg-blue-100 text-blue-700'
+                : 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold bg-slate-200 text-slate-600';
+        }
         if (schedFlexibleBtn) {
             schedFlexibleBtn.setAttribute('aria-pressed', String(active));
+            schedFlexibleBtn.setAttribute('aria-checked', String(active));
             schedFlexibleBtn.className = active
-                ? 'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-                : 'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200';
+                ? 'group relative inline-flex items-center gap-2.5 rounded-full py-1.5 pl-2.5 pr-3.5 text-xs font-semibold border transition-all shadow-sm bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                : 'group relative inline-flex items-center gap-2.5 rounded-full py-1.5 pl-2.5 pr-3.5 text-xs font-semibold border transition-all shadow-sm bg-white text-slate-700 border-slate-300 hover:bg-slate-50';
+        }
+        if (schedFlexibleTrack) {
+            schedFlexibleTrack.className = active
+                ? 'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full bg-blue-800/60 transition-colors'
+                : 'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full bg-slate-300 transition-colors';
         }
         if (schedFlexibleDot) {
             schedFlexibleDot.className = active
-                ? 'w-2.5 h-2.5 rounded-full bg-emerald-300'
-                : 'w-2.5 h-2.5 rounded-full bg-slate-400';
+                ? 'inline-block h-3.5 w-3.5 transform rounded-full bg-emerald-300 shadow transition-transform translate-x-4'
+                : 'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform translate-x-1';
         }
         if (schedFlexibleLabel) {
-            schedFlexibleLabel.textContent = active ? 'Flexible Time: ON' : 'Flexible Time: OFF';
+            schedFlexibleLabel.textContent = active ? 'ON' : 'OFF';
         }
+        if (schedHoursLockTag) {
+            schedHoursLockTag.classList.toggle('hidden', !active);
+            schedHoursLockTag.classList.toggle('inline-flex', active);
+        }
+        if (schedHoursGrid) {
+            schedHoursGrid.classList.toggle('opacity-40', active);
+            schedHoursGrid.classList.toggle('pointer-events-none', active);
+            schedHoursGrid.classList.toggle('select-none', active);
+        }
+
         const hourInputIds = [
             'schedWorkStart',
             'schedWorkEnd',
@@ -1145,7 +1184,6 @@ async function initDashboard() {
             if (!el) return;
             el.disabled = active;
             el.classList.toggle('bg-slate-100', active);
-            el.classList.toggle('opacity-50', active);
             el.classList.toggle('cursor-not-allowed', active);
         });
 
@@ -1157,6 +1195,16 @@ async function initDashboard() {
 
     schedFlexibleBtn?.addEventListener('click', () => {
         setFlexibleTimeUI(!schedIsFlexible?.checked);
+    });
+
+    $all('.sched-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const preset = btn.dataset.daysPreset;
+            const mask = preset === 'mon-fri' ? 31 : preset === 'mon-sat' ? 63 : 0;
+            $all('#scheduleUserForm input[name="workday"]').forEach(cb => {
+                cb.checked = (mask & parseInt(cb.value, 10)) !== 0;
+            });
+        });
     });
 
     async function loadScheduleData(userId) {

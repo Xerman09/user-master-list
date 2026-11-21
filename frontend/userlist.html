@@ -654,61 +654,164 @@
                     
                     <div id="editSchedule" class="tab-content hidden" role="tabpanel">
                         <form id="scheduleUserForm" class="space-y-6" data-user-id="" data-schedule-id="">
-                            <div class="space-y-4">
-                                <h4 class="font-semibold text-slate-700 border-b pb-2">Working Days</h4>
-                                <div class="flex flex-wrap gap-4">
-                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="1" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Monday</label>
-                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="2" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Tuesday</label>
-                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="4" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Wednesday</label>
-                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="8" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Thursday</label>
-                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="16" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Friday</label>
-                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="32" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Saturday</label>
-                                    <label class="flex items-center gap-2"><input type="checkbox" name="workday" value="64" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Sunday</label>
+                            <!-- Flexible Time Toggle Card -->
+                            <div id="schedFlexibleCard" class="flex items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/80 transition-all">
+                                <div class="flex items-start gap-3">
+                                    <div id="schedFlexibleIconBox" class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-200/80 text-slate-600 transition-colors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm font-semibold text-slate-800">Flexible Time Schedule</span>
+                                            <span id="schedFlexibleBadge" class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold bg-slate-200 text-slate-600">Fixed Hours</span>
+                                        </div>
+                                        <p class="text-xs text-slate-500 mt-0.5">Enable if this employee has flexible working hours instead of a fixed daily shift.</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center shrink-0">
+                                    <input type="checkbox" id="schedIsFlexible" name="is_flexible" class="hidden">
+                                    <button type="button" id="schedFlexibleBtn" role="switch" aria-checked="false" aria-pressed="false"
+                                        class="group relative inline-flex items-center gap-2.5 rounded-full py-1.5 pl-2.5 pr-3.5 text-xs font-semibold border transition-all shadow-sm bg-white text-slate-700 border-slate-300 hover:bg-slate-50">
+                                        <span id="schedFlexibleTrack" class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full bg-slate-300 transition-colors">
+                                            <span id="schedFlexibleDot" class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform translate-x-1"></span>
+                                        </span>
+                                        <span id="schedFlexibleLabel">OFF</span>
+                                    </button>
                                 </div>
                             </div>
 
-                            <div class="space-y-4">
-                                <div class="flex items-center justify-between border-b pb-2">
-                                    <h4 class="font-semibold text-slate-700">Hours</h4>
+                            <!-- Working Days -->
+                            <div class="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-sm">
+                                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                                     <div>
-                                        <input type="checkbox" id="schedIsFlexible" name="is_flexible" class="hidden">
-                                        <button type="button" id="schedFlexibleBtn" aria-pressed="false" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200">
-                                            <span id="schedFlexibleDot" class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
-                                            <span id="schedFlexibleLabel">Flexible Time: OFF</span>
-                                        </button>
+                                        <h4 class="text-sm font-semibold text-slate-800">Working Days</h4>
+                                        <p class="text-xs text-slate-500">Select the days the employee is scheduled to work</p>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <button type="button" data-days-preset="mon-fri" class="sched-preset-btn px-2.5 py-1 text-xs font-medium rounded-md border border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors">Mon–Fri</button>
+                                        <button type="button" data-days-preset="mon-sat" class="sched-preset-btn px-2.5 py-1 text-xs font-medium rounded-md border border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors">Mon–Sat</button>
+                                        <button type="button" data-days-preset="clear" class="sched-preset-btn px-2.5 py-1 text-xs font-medium rounded-md border border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">Clear</button>
                                     </div>
                                 </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 pt-1">
+                                    <label class="cursor-pointer">
+                                        <input type="checkbox" name="workday" value="1" class="peer sr-only">
+                                        <div class="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-center transition-all peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 hover:border-slate-300">
+                                            <span class="text-xs font-bold">Mon</span>
+                                            <span class="text-[10px] text-slate-400 peer-checked:text-blue-500">Monday</span>
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="checkbox" name="workday" value="2" class="peer sr-only">
+                                        <div class="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-center transition-all peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 hover:border-slate-300">
+                                            <span class="text-xs font-bold">Tue</span>
+                                            <span class="text-[10px] text-slate-400 peer-checked:text-blue-500">Tuesday</span>
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="checkbox" name="workday" value="4" class="peer sr-only">
+                                        <div class="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-center transition-all peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 hover:border-slate-300">
+                                            <span class="text-xs font-bold">Wed</span>
+                                            <span class="text-[10px] text-slate-400 peer-checked:text-blue-500">Wednesday</span>
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="checkbox" name="workday" value="8" class="peer sr-only">
+                                        <div class="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-center transition-all peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 hover:border-slate-300">
+                                            <span class="text-xs font-bold">Thu</span>
+                                            <span class="text-[10px] text-slate-400 peer-checked:text-blue-500">Thursday</span>
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="checkbox" name="workday" value="16" class="peer sr-only">
+                                        <div class="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-center transition-all peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 hover:border-slate-300">
+                                            <span class="text-xs font-bold">Fri</span>
+                                            <span class="text-[10px] text-slate-400 peer-checked:text-blue-500">Friday</span>
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="checkbox" name="workday" value="32" class="peer sr-only">
+                                        <div class="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-center transition-all peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 hover:border-slate-300">
+                                            <span class="text-xs font-bold">Sat</span>
+                                            <span class="text-[10px] text-slate-400 peer-checked:text-blue-500">Saturday</span>
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="checkbox" name="workday" value="64" class="peer sr-only">
+                                        <div class="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-center transition-all peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 hover:border-slate-300">
+                                            <span class="text-xs font-bold">Sun</span>
+                                            <span class="text-[10px] text-slate-400 peer-checked:text-blue-500">Sunday</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Shift & Break Hours -->
+                            <div id="schedHoursSection" class="rounded-xl border border-slate-200 bg-white p-4 space-y-4 shadow-sm transition-all">
+                                <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
                                     <div>
-                                        <label class="label">Work Start</label>
-                                        <input type="time" id="schedWorkStart" name="work_start" class="input" required>
+                                        <h4 class="text-sm font-semibold text-slate-800">Shift &amp; Break Hours</h4>
+                                        <p class="text-xs text-slate-500">Configure daily duty, lunch, and afternoon break times</p>
                                     </div>
-                                    <div>
-                                        <label class="label">Work End</label>
-                                        <input type="time" id="schedWorkEnd" name="work_end" class="input" required>
+                                    <span id="schedHoursLockTag" class="hidden items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 border border-amber-200">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                                        </svg>
+                                        Disabled (Flexible Time ON)
+                                    </span>
+                                </div>
+
+                                <div id="schedHoursGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4 transition-opacity">
+                                    <!-- Work Shift -->
+                                    <div class="rounded-lg border border-slate-200/80 bg-slate-50/50 p-3 space-y-3">
+                                        <div class="text-xs font-semibold uppercase tracking-wider text-blue-600">Duty Hours</div>
+                                        <div>
+                                            <label class="label text-xs">Work Start</label>
+                                            <input type="time" id="schedWorkStart" name="work_start" class="input" required>
+                                        </div>
+                                        <div>
+                                            <label class="label text-xs">Work End</label>
+                                            <input type="time" id="schedWorkEnd" name="work_end" class="input" required>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label class="label">Lunch Start</label>
-                                        <input type="time" id="schedLunchStart" name="lunch_start" class="input" value="12:00">
+
+                                    <!-- Lunch Break -->
+                                    <div class="rounded-lg border border-slate-200/80 bg-slate-50/50 p-3 space-y-3">
+                                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-600">Lunch Break</div>
+                                        <div>
+                                            <label class="label text-xs">Lunch Start</label>
+                                            <input type="time" id="schedLunchStart" name="lunch_start" class="input" value="12:00">
+                                        </div>
+                                        <div>
+                                            <label class="label text-xs">Lunch End</label>
+                                            <input type="time" id="schedLunchEnd" name="lunch_end" class="input" value="13:00">
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label class="label">Lunch End</label>
-                                        <input type="time" id="schedLunchEnd" name="lunch_end" class="input" value="13:00">
-                                    </div>
-                                    <div>
-                                        <label class="label">Break Start</label>
-                                        <input type="time" id="schedBreakStart" name="break_start" class="input" value="15:00">
-                                    </div>
-                                    <div>
-                                        <label class="label">Break End</label>
-                                        <input type="time" id="schedBreakEnd" name="break_end" class="input" value="15:30">
+
+                                    <!-- Afternoon Break -->
+                                    <div class="rounded-lg border border-slate-200/80 bg-slate-50/50 p-3 space-y-3">
+                                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-600">Short Break</div>
+                                        <div>
+                                            <label class="label text-xs">Break Start</label>
+                                            <input type="time" id="schedBreakStart" name="break_start" class="input" value="15:00">
+                                        </div>
+                                        <div>
+                                            <label class="label text-xs">Break End</label>
+                                            <input type="time" id="schedBreakEnd" name="break_end" class="input" value="15:30">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             
-                            <div class="space-y-4">
-                                <h4 class="font-semibold text-slate-700 border-b pb-2">Other</h4>
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <!-- Additional Options -->
+                            <div class="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-sm">
+                                <div class="border-b border-slate-100 pb-2.5">
+                                    <h4 class="text-sm font-semibold text-slate-800">Additional Settings</h4>
+                                    <p class="text-xs text-slate-500">Grace period, schedule remarks, and designated rest day</p>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
                                     <div>
                                         <label class="label">Grace Period (Minutes)</label>
                                         <input type="number" id="schedGracePeriod" name="grace_period" class="input" value="5" min="0">
@@ -733,7 +836,7 @@
                                 </div>
                             </div>
 
-                            <p id="scheduleUserFormError" class="text-sm text-red-600"></p>
+                            <p id="scheduleUserFormError" class="text-sm font-medium text-red-600"></p>
                         </form>
                     </div>
                 </div>
