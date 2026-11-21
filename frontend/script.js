@@ -1132,16 +1132,27 @@ async function initDashboard() {
         if (schedFlexibleLabel) {
             schedFlexibleLabel.textContent = active ? 'Flexible Time: ON' : 'Flexible Time: OFF';
         }
+        const hourInputIds = [
+            'schedWorkStart',
+            'schedWorkEnd',
+            'schedLunchStart',
+            'schedLunchEnd',
+            'schedBreakStart',
+            'schedBreakEnd'
+        ];
+        hourInputIds.forEach(id => {
+            const el = getEl(id);
+            if (!el) return;
+            el.disabled = active;
+            el.classList.toggle('bg-slate-100', active);
+            el.classList.toggle('opacity-50', active);
+            el.classList.toggle('cursor-not-allowed', active);
+        });
+
         const workStartEl = getEl('schedWorkStart');
         const workEndEl = getEl('schedWorkEnd');
-        if (workStartEl) {
-            workStartEl.required = !active;
-            if (active && !workStartEl.value) workStartEl.value = '08:00';
-        }
-        if (workEndEl) {
-            workEndEl.required = !active;
-            if (active && !workEndEl.value) workEndEl.value = '17:00';
-        }
+        if (workStartEl) workStartEl.required = !active;
+        if (workEndEl) workEndEl.required = !active;
     }
 
     schedFlexibleBtn?.addEventListener('click', () => {
@@ -1220,12 +1231,12 @@ async function initDashboard() {
         const body = {
             user_id: parseInt(userId, 10),
             working_days: workingDays,
-            work_start: formatTime(fd.get('work_start')) || '08:00:00',
-            work_end: formatTime(fd.get('work_end')) || '17:00:00',
-            lunch_start: formatTime(fd.get('lunch_start')) || '12:00:00',
-            lunch_end: formatTime(fd.get('lunch_end')) || '13:00:00',
-            break_start: formatTime(fd.get('break_start')) || '15:00:00',
-            break_end: formatTime(fd.get('break_end')) || '15:30:00',
+            work_start: formatTime(fd.get('work_start') || getEl('schedWorkStart')?.value) || '08:00:00',
+            work_end: formatTime(fd.get('work_end') || getEl('schedWorkEnd')?.value) || '17:00:00',
+            lunch_start: formatTime(fd.get('lunch_start') || getEl('schedLunchStart')?.value) || '12:00:00',
+            lunch_end: formatTime(fd.get('lunch_end') || getEl('schedLunchEnd')?.value) || '13:00:00',
+            break_start: formatTime(fd.get('break_start') || getEl('schedBreakStart')?.value) || '15:00:00',
+            break_end: formatTime(fd.get('break_end') || getEl('schedBreakEnd')?.value) || '15:30:00',
             grace_period: parseInt(fd.get('grace_period') || 5, 10),
             workdays_note: fd.get('workdays_note') || null,
             rest_day: fd.get('rest_day') || null,
