@@ -1102,10 +1102,57 @@ async function initDashboard() {
     });
 
     /* ---------- Schedule User ---------- */
+    const schedFlexibleBtn = getEl('schedFlexibleBtn');
+    const schedIsFlexible = getEl('schedIsFlexible');
+    const schedFlexibleDot = getEl('schedFlexibleDot');
+    const schedFlexibleLabel = getEl('schedFlexibleLabel');
+
+    function toBoolVal(val) {
+        if (val && typeof val === 'object' && val.type === 'Buffer' && Array.isArray(val.data)) {
+            return !!val.data[0];
+        }
+        if (typeof val === 'string') return val === '1' || val.toLowerCase() === 'true';
+        return !!val;
+    }
+
+    function setFlexibleTimeUI(isFlex) {
+        const active = !!isFlex;
+        if (schedIsFlexible) schedIsFlexible.checked = active;
+        if (schedFlexibleBtn) {
+            schedFlexibleBtn.setAttribute('aria-pressed', String(active));
+            schedFlexibleBtn.className = active
+                ? 'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                : 'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200';
+        }
+        if (schedFlexibleDot) {
+            schedFlexibleDot.className = active
+                ? 'w-2.5 h-2.5 rounded-full bg-emerald-300'
+                : 'w-2.5 h-2.5 rounded-full bg-slate-400';
+        }
+        if (schedFlexibleLabel) {
+            schedFlexibleLabel.textContent = active ? 'Flexible Time: ON' : 'Flexible Time: OFF';
+        }
+        const workStartEl = getEl('schedWorkStart');
+        const workEndEl = getEl('schedWorkEnd');
+        if (workStartEl) {
+            workStartEl.required = !active;
+            if (active && !workStartEl.value) workStartEl.value = '08:00';
+        }
+        if (workEndEl) {
+            workEndEl.required = !active;
+            if (active && !workEndEl.value) workEndEl.value = '17:00';
+        }
+    }
+
+    schedFlexibleBtn?.addEventListener('click', () => {
+        setFlexibleTimeUI(!schedIsFlexible?.checked);
+    });
+
     async function loadScheduleData(userId) {
         scheduleUserForm.dataset.userId = userId;
         scheduleUserForm.dataset.scheduleId = ''; // Clear previous id
         scheduleUserForm.reset();
+        setFlexibleTimeUI(false); // Default: not flexible time
         $('#scheduleUserFormError').textContent = '';
 
         try {
@@ -1140,6 +1187,7 @@ async function initDashboard() {
                 if (schedule.rest_day) {
                     $('#schedRestDay').value = schedule.rest_day;
                 }
+                setFlexibleTimeUI(toBoolVal(schedule.is_flexible));
             }
         } catch (err) {
             console.error('Failed to load schedule', err);
@@ -1167,19 +1215,21 @@ async function initDashboard() {
         });
 
         const formatTime = (t) => t && t.length === 5 ? `${t}:00` : (t || null);
+        const isFlexible = !!schedIsFlexible?.checked;
 
         const body = {
             user_id: parseInt(userId, 10),
             working_days: workingDays,
-            work_start: formatTime(fd.get('work_start')),
-            work_end: formatTime(fd.get('work_end')),
+            work_start: formatTime(fd.get('work_start')) || '08:00:00',
+            work_end: formatTime(fd.get('work_end')) || '17:00:00',
             lunch_start: formatTime(fd.get('lunch_start')) || '12:00:00',
             lunch_end: formatTime(fd.get('lunch_end')) || '13:00:00',
             break_start: formatTime(fd.get('break_start')) || '15:00:00',
             break_end: formatTime(fd.get('break_end')) || '15:30:00',
             grace_period: parseInt(fd.get('grace_period') || 5, 10),
             workdays_note: fd.get('workdays_note') || null,
-            rest_day: fd.get('rest_day') || null
+            rest_day: fd.get('rest_day') || null,
+            is_flexible: isFlexible ? 1 : 0
         };
 
         try {

@@ -490,6 +490,22 @@ app.patch('/items/user/:id', async (req, res) => {
 });
 
 /* ===== USER SCHEDULE ===== */
+function transformSchedule(s) {
+    if (!s || typeof s !== 'object') return s;
+    return {
+        ...s,
+        is_flexible: toBoolMaybeBuffer(s.is_flexible ?? false),
+    };
+}
+
+function transformScheduleResp(data) {
+    if (Array.isArray(data?.data))
+        return { ...data, data: data.data.map(transformSchedule) };
+    if (data?.data && typeof data.data === 'object')
+        return { ...data, data: transformSchedule(data.data) };
+    return data;
+}
+
 app.get('/items/user_schedule', async (req, res) => {
     try {
         const { filter } = req.query;
@@ -499,7 +515,7 @@ app.get('/items/user_schedule', async (req, res) => {
         }
         
         const { data } = await api.get('/user_schedule', { params });
-        res.json(data);
+        res.json(transformScheduleResp(data));
     } catch (err) {
         res
             .status(err.response?.status || 502)
@@ -509,24 +525,60 @@ app.get('/items/user_schedule', async (req, res) => {
 
 app.post('/items/user_schedule', async (req, res) => {
     try {
-        const { data } = await api.post('/user_schedule', req.body);
-        res.json(data);
+        const payload = {
+            ...req.body,
+            work_start: req.body?.work_start || '08:00:00',
+            work_end: req.body?.work_end || '17:00:00',
+            is_flexible: req.body?.is_flexible ? 1 : 0,
+        };
+        try {
+            const { data } = await api.post('/user_schedule', payload);
+            return res.json(transformScheduleResp(data));
+        } catch (err) {
+            const errMsg = extractErrorMessage(err, '');
+            if (errMsg.includes('is_flexible')) {
+                console.warn('⚠️ Directus rejected field "is_flexible" (column missing or Directus not restarted/permitted). Retrying without is_flexible...');
+                const { is_flexible, ...fallbackPayload } = payload;
+                const { data } = await api.post('/user_schedule', fallbackPayload);
+                return res.json(transformScheduleResp(data));
+            }
+            throw err;
+        }
     } catch (err) {
+        const message = extractErrorMessage(err, 'Create user schedule failed');
         res
             .status(err.response?.status || 500)
-            .json({ error: 'Create user schedule failed', detail: err.response?.data || err.message });
+            .json({ error: message, detail: err.response?.data || err.message });
     }
 });
 
 app.patch('/items/user_schedule/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { data } = await api.patch(`/user_schedule/${id}`, req.body);
-        res.json(data);
+        const payload = {
+            ...req.body,
+            ...(req.body?.work_start === null ? { work_start: '08:00:00' } : {}),
+            ...(req.body?.work_end === null ? { work_end: '17:00:00' } : {}),
+            ...(req.body?.is_flexible !== undefined ? { is_flexible: req.body.is_flexible ? 1 : 0 } : {}),
+        };
+        try {
+            const { data } = await api.patch(`/user_schedule/${id}`, payload);
+            return res.json(transformScheduleResp(data));
+        } catch (err) {
+            const errMsg = extractErrorMessage(err, '');
+            if (errMsg.includes('is_flexible')) {
+                console.warn('⚠️ Directus rejected field "is_flexible" (column missing or Directus not restarted/permitted). Retrying without is_flexible...');
+                const { is_flexible, ...fallbackPayload } = payload;
+                const { data } = await api.patch(`/user_schedule/${id}`, fallbackPayload);
+                return res.json(transformScheduleResp(data));
+            }
+            throw err;
+        }
     } catch (err) {
+        const message = extractErrorMessage(err, 'Update user schedule failed');
         res
             .status(err.response?.status || 500)
-            .json({ error: 'Update user schedule failed', detail: err.response?.data || err.message });
+            .json({ error: message, detail: err.response?.data || err.message });
     }
 });
 

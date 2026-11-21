@@ -668,7 +668,16 @@
                             </div>
 
                             <div class="space-y-4">
-                                <h4 class="font-semibold text-slate-700 border-b pb-2">Hours</h4>
+                                <div class="flex items-center justify-between border-b pb-2">
+                                    <h4 class="font-semibold text-slate-700">Hours</h4>
+                                    <div>
+                                        <input type="checkbox" id="schedIsFlexible" name="is_flexible" class="hidden">
+                                        <button type="button" id="schedFlexibleBtn" aria-pressed="false" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200">
+                                            <span id="schedFlexibleDot" class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                                            <span id="schedFlexibleLabel">Flexible Time: OFF</span>
+                                        </button>
+                                    </div>
+                                </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label class="label">Work Start</label>
