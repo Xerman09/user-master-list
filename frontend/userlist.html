@@ -91,100 +91,110 @@
             </div>
         </div>
 
-        <div class="vos-card overflow-hidden">
-            <div class="p-5 border-b border-slate-200">
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-4 items-end">
+        <div class="vos-card overflow-hidden shadow-sm">
+            <div class="p-5 border-b border-slate-200 bg-white">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-x-5 gap-y-4 items-end">
                     <div class="md:col-span-6">
-                        <label for="searchBox" class="label">Search</label>
+                        <label for="searchBox" class="label text-xs uppercase tracking-wider text-slate-500">Search Directory</label>
                         <div class="search-container mt-1">
                             <div class="search-icon">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5" aria-hidden="true">
                                     <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
                                 </svg>
                             </div>
-                            <input id="searchBox" type="search" class="input w-full" placeholder="Search by name, email or department" />
+                            <input id="searchBox" type="search" class="input w-full" placeholder="Search by name, email, designation, or department..." />
                         </div>
                     </div>
 
                     <!-- Email filter -->
                     <fieldset class="md:col-span-3">
-                        <legend class="sr-only">Email filter</legend>
-                        <div class="flex items-center gap-4 pt-1">
-                            <label class="flex items-center gap-2">
+                        <legend class="label text-xs uppercase tracking-wider text-slate-500 mb-1">Email Filter</legend>
+                        <div class="flex items-center gap-4 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50/70">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
                                 <input id="withEmailCheckbox" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" checked />
-                                <span class="text-sm">With Email</span>
+                                <span class="text-xs font-medium text-slate-700">With Email</span>
                             </label>
-                            <label class="flex items-center gap-2">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
                                 <input id="withoutEmailCheckbox" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" checked />
-                                <span class="text-sm">Without Email</span>
+                                <span class="text-xs font-medium text-slate-700">No Email</span>
                             </label>
                         </div>
                     </fieldset>
 
-                    <!-- Status filter (NEW) -->
+                    <!-- Status filter -->
                     <fieldset class="md:col-span-3">
-                        <legend class="sr-only">Status filter</legend>
-                        <div class="flex items-center gap-4 pt-1">
-                            <label class="flex items-center gap-2">
+                        <legend class="label text-xs uppercase tracking-wider text-slate-500 mb-1">Account Status</legend>
+                        <div class="flex items-center gap-4 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50/70">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
                                 <input id="showActiveCheckbox" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" checked />
-                                <span class="text-sm">Active</span>
+                                <span class="text-xs font-medium text-slate-700">Active</span>
                             </label>
-                            <label class="flex items-center gap-2">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
                                 <input id="showInactiveCheckbox" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                                <span class="text-sm">Inactive</span>
+                                <span class="text-xs font-medium text-slate-700">Inactive</span>
                             </label>
                         </div>
                     </fieldset>
 
                     <div class="md:col-span-3">
-                        <label class="label">Department</label>
-                        <select id="departmentFilter" class="input mt-1">
-                            <option value="">All</option>
+                        <label class="label text-xs uppercase tracking-wider text-slate-500">Department</label>
+                        <select id="departmentFilter" class="input mt-1 text-sm">
+                            <option value="">All Departments</option>
                         </select>
                     </div>
 
                     <div class="md:col-span-3">
-                        <label class="label">Employee Type</label>
-                        <select id="employeeTypeFilter" class="input mt-1">
-                            <option value="">All</option>
+                        <label class="label text-xs uppercase tracking-wider text-slate-500">Employee Type</label>
+                        <select id="employeeTypeFilter" class="input mt-1 text-sm">
+                            <option value="">All Types</option>
                         </select>
                     </div>
 
                     <div class="md:col-span-3">
-                        <label class="label">User Type</label>
-                        <select id="employeeFilter" class="input mt-1">
+                        <label class="label text-xs uppercase tracking-wider text-slate-500">User Type</label>
+                        <select id="employeeFilter" class="input mt-1 text-sm">
                             <option value="employee_only" selected>Employees Only</option>
                             <option value="all">All Users</option>
                         </select>
                     </div>
 
                     <div class="md:col-span-3">
-                        <label class="label">Page size</label>
-                        <select id="pageSize" class="input mt-1" disabled><option>15</option></select>
+                        <label class="label text-xs uppercase tracking-wider text-slate-500">Page Size</label>
+                        <select id="pageSize" class="input mt-1 text-sm">
+                            <option value="10">10 per page</option>
+                            <option value="15" selected>15 per page</option>
+                            <option value="25">25 per page</option>
+                            <option value="50">50 per page</option>
+                        </select>
                     </div>
                 </div>
             </div>
 
             <div class="overflow-x-auto">
                 <table class="vos-table">
-                    <thead class="bg-slate-50">
+                    <thead class="bg-slate-50/90 border-b border-slate-200">
                     <tr>
-                        <th class="py-3 px-5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
-                        <th class="py-3 px-5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Department</th>
-                        <th class="py-3 px-5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Employee Type</th>
-                        <th class="py-3 px-5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Designation</th>
+                        <th class="py-3.5 px-5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Employee</th>
+                        <th class="py-3.5 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Department</th>
+                        <th class="py-3.5 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Employee Type</th>
+                        <th class="py-3.5 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Designation</th>
+                        <th class="py-3.5 px-5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                     </tr>
                     </thead>
-                    <tbody id="usersTbody" class="divide-y divide-slate-200"></tbody>
+                    <tbody id="usersTbody" class="divide-y divide-slate-200/80 bg-white"></tbody>
                 </table>
             </div>
 
-            <div class="vos-table-footer">
-                <div id="resultInfo" class="text-sm text-slate-500"></div>
+            <div class="vos-table-footer bg-slate-50/60 px-5 py-3.5">
+                <div id="resultInfo" class="text-xs font-medium text-slate-500"></div>
                 <div class="flex items-center gap-2">
-                    <button id="prevBtn" class="vos-btn-icon" disabled>&laquo;</button>
-                    <span id="pageIndicator" class="text-sm font-medium">1</span>
-                    <button id="nextBtn" class="vos-btn-icon">&raquo;</button>
+                    <button id="prevBtn" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors shadow-sm" disabled>
+                        &laquo; Prev
+                    </button>
+                    <span id="pageIndicator" class="px-3 py-1 rounded-md bg-white border border-slate-200 text-xs font-semibold text-slate-700 shadow-sm">1 / 1</span>
+                    <button id="nextBtn" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors shadow-sm">
+                        Next &raquo;
+                    </button>
                 </div>
             </div>
         </div>

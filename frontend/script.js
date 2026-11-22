@@ -491,7 +491,8 @@ async function initDashboard() {
 
     /* ---------- Users ---------- */
     let ALL_USERS = [];
-    const PAGE_SIZE = 15;
+    const pageSizeSelect = $('#pageSize');
+    let PAGE_SIZE = parseInt(pageSizeSelect?.value || 15, 10) || 15;
     let currentPage = 1;
 
     async function loadUsers() {
@@ -566,6 +567,29 @@ async function initDashboard() {
         });
     }
 
+    function getEmployeeTypeBadge(typeName) {
+        if (!typeName || typeName === 'N/A') {
+            return `<span class="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">N/A</span>`;
+        }
+        const lower = String(typeName).toLowerCase();
+        let cls = 'bg-blue-50 text-blue-700 border-blue-200/80';
+        let dot = 'bg-blue-500';
+        if (lower.includes('perm') || lower.includes('reg')) {
+            cls = 'bg-emerald-50 text-emerald-700 border-emerald-200/80';
+            dot = 'bg-emerald-500';
+        } else if (lower.includes('prob')) {
+            cls = 'bg-amber-50 text-amber-700 border-amber-200/80';
+            dot = 'bg-amber-500';
+        } else if (lower.includes('part') || lower.includes('intern') || lower.includes('ojt')) {
+            cls = 'bg-purple-50 text-purple-700 border-purple-200/80';
+            dot = 'bg-purple-500';
+        }
+        return `<span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${cls}">
+            <span class="h-1.5 w-1.5 rounded-full ${dot}"></span>
+            ${typeName}
+        </span>`;
+    }
+
     function renderUsers() {
         const filtered = filterUsers();
         const total = filtered.length;
@@ -577,28 +601,80 @@ async function initDashboard() {
         const end = Math.min(start + PAGE_SIZE, total);
         const pageItems = filtered.slice(start, end);
 
-        usersTbody.innerHTML = pageItems.map(u => `
-      <tr>
-        <td class="fullname-cell" data-user-id="${u.user_id}">
-          <div class="font-semibold">
-            ${u.user_fname || ''} ${u.user_lname || ''}
-            ${u.isDeleted ? '<span class="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700">Inactive</span>' : ''}
+        usersTbody.innerHTML = pageItems.map(u => {
+            const fname = (u.user_fname || '').trim();
+            const lname = (u.user_lname || '').trim();
+            const fullName = [fname, lname].filter(Boolean).join(' ') || 'Unnamed User';
+            const initials = ((fname[0] || '') + (lname[0] || '')).toUpperCase() || 'U';
+            const address = [u.user_brgy, u.user_city, u.user_province].filter(Boolean).join(' • ');
+            const deptName = u.user_department ? (departmentMap[u.user_department] || u.user_department) : null;
+            const empTypeName = u.employee_type_id ? (employeeTypeMap[u.employee_type_id] || u.employee_type_id) : null;
+            const empStatusName = u.employment_status_id ? (employmentStatusMap[u.employment_status_id] || null) : null;
+
+            return `
+      <tr class="group hover:bg-slate-50/90 transition-colors">
+        <td class="fullname-cell py-3.5 px-5" data-user-id="${u.user_id}">
+          <div class="flex items-center gap-3.5">
+            <div class="relative h-10 w-10 shrink-0">
+              ${u.user_image ? `
+                <img src="${u.user_image}" alt="${fullName}" class="h-10 w-10 rounded-full object-cover border border-slate-200 shadow-sm"
+                     onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');" />
+                <div class="hidden h-10 w-10 rounded-full bg-gradient-to-br from-blue-50 to-indigo-100 border border-blue-200/80 text-blue-700 font-bold text-xs flex items-center justify-center shadow-sm">${initials}</div>
+              ` : `
+                <div class="h-10 w-10 rounded-full bg-gradient-to-br from-blue-50 to-indigo-100 border border-blue-200/80 text-blue-700 font-bold text-xs flex items-center justify-center shadow-sm">${initials}</div>
+              `}
+              <span class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white ${u.isDeleted ? 'bg-red-500' : 'bg-emerald-500'}" title="${u.isDeleted ? 'Inactive' : 'Active'}"></span>
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">${fullName}</span>
+                ${u.isDeleted ? '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold bg-red-100 text-red-700">Inactive</span>' : ''}
+                ${u.isAdmin ? '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80">Admin</span>' : ''}
+              </div>
+              <div class="text-xs text-slate-500 truncate mt-0.5">${u.user_email || '<span class="italic text-slate-400">No email provided</span>'}</div>
+              ${address ? `<div class="text-[11px] text-slate-400 truncate mt-0.5">${address}</div>` : ''}
+            </div>
           </div>
-          <div class="text-sm text-slate-500">${u.user_email || 'No email'}</div>
-          <div class="text-xs text-slate-400">${[u.user_brgy, u.user_city, u.user_province].filter(Boolean).join(' • ') || ''}</div>
         </td>
-        <td class="text-sm">${u.user_department ? (departmentMap[u.user_department] || u.user_department) : 'N/A'}</td>
-        <td class="text-sm">${u.employee_type_id ? (employeeTypeMap[u.employee_type_id] || u.employee_type_id) : 'N/A'}</td>
-        <td class="text-sm">
-          ${u.user_position || 'N/A'}
-          <br/>
-          <div class="mt-2 flex gap-2">
-            <a class="text-blue-600 hover:underline text-xs" href="view_id.html?id=${encodeURIComponent(u.user_id)}" target="_blank">View ID</a>
-            <button class="text-blue-600 hover:underline text-xs btn-schedule" data-user-id="${u.user_id}">Set Schedule</button>
+        <td class="py-3.5 px-4 text-sm">
+          ${deptName
+              ? `<span class="inline-flex items-center rounded-lg bg-slate-100/90 px-2.5 py-1 text-xs font-medium text-slate-700 border border-slate-200/70">${deptName}</span>`
+              : `<span class="text-xs text-slate-400 italic">Unassigned</span>`}
+        </td>
+        <td class="py-3.5 px-4 text-sm">
+          ${getEmployeeTypeBadge(empTypeName)}
+        </td>
+        <td class="py-3.5 px-4">
+          <div class="text-sm font-medium text-slate-800">${u.user_position || '<span class="text-xs text-slate-400 italic">No designation</span>'}</div>
+          ${empStatusName ? `<div class="text-[11px] text-slate-400 mt-0.5">${empStatusName}</div>` : ''}
+        </td>
+        <td class="py-3.5 px-5 text-right whitespace-nowrap">
+          <div class="inline-flex items-center justify-end gap-2">
+            <a class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 transition-colors shadow-sm"
+               href="view_id.html?id=${encodeURIComponent(u.user_id)}" target="_blank" title="Preview & Export Employee ID">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+              </svg>
+              View ID
+            </a>
+            <button type="button" class="btn-schedule inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 hover:text-blue-600 border border-slate-200 transition-colors shadow-sm"
+                    data-user-id="${u.user_id}" title="Configure Work Schedule">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Schedule
+            </button>
+            <button type="button" class="btn-edit-user inline-flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-colors"
+                    data-user-id="${u.user_id}" title="Edit User Profile">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
           </div>
         </td>
       </tr>
-    `).join('');
+    `;
+        }).join('');
 
         // Update stats
         if (statTotalUsers) statTotalUsers.textContent = total;
@@ -677,8 +753,9 @@ async function initDashboard() {
             nextBtn.disabled = currentPage >= totalPages;
         }
 
-        $all('#usersTbody .fullname-cell').forEach(cell => {
-            cell.addEventListener('click', () => {
+        $all('#usersTbody .fullname-cell, #usersTbody .btn-edit-user').forEach(cell => {
+            cell.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const user = ALL_USERS.find(u => u.user_id == cell.dataset.userId);
                 if (user) showEditUserModal(user);
             });
@@ -1327,6 +1404,11 @@ async function initDashboard() {
     departmentFilter?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
     employeeTypeFilter?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
     employeeFilter?.addEventListener('change', () => { currentPage = 1; renderUsers(); });
+    pageSizeSelect?.addEventListener('change', () => {
+        PAGE_SIZE = parseInt(pageSizeSelect.value, 10) || 15;
+        currentPage = 1;
+        renderUsers();
+    });
 
     /* ---------- Boot ---------- */
     await Promise.all([loadDepartments(), loadLgu(), loadEmploymentStatus(), loadEmployeeType(), loadRoles()]);
